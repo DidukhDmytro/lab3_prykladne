@@ -7,7 +7,9 @@ import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.exception.DomainMessages;
 import com.example.carservice.exception.InvalidArgumentException;
 import java.math.BigDecimal;
+import org.springframework.stereotype.Component;
 
+@Component
 public class GiftPolicy {
     public Present createPresent(RepairOrder order) {
         if (order == null) {

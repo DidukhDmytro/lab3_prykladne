@@ -2,16 +2,15 @@ package com.example.carservice.repository;
 
 import com.example.carservice.domain.Car;
 import java.util.Optional;
+import org.springframework.data.repository.Repository;
 
 /**
- * Stores cars by VIN.
+ * Provides persistent access to cars by VIN.
  *
- * <p>Saving a car whose VIN already exists throws an
- * {@link com.example.carservice.exception.EntityAlreadyExistsException}. Lookup returns
- * {@link Optional#empty()} when the VIN is not present and never throws merely because a car is
- * missing.</p>
+ * <p>Lookup returns {@link Optional#empty()} when the car is missing. Duplicate VINs are rejected
+ * by the database primary-key constraint.</p>
  */
-public interface CarRepository {
+public interface CarRepository extends Repository<Car, String> {
     Car save(Car car);
 
     Optional<Car> findByVin(String vin);

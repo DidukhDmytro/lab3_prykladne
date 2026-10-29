@@ -12,6 +12,7 @@ import com.example.carservice.exception.InvalidStateTransitionException;
 import com.example.carservice.exception.MechanicNotCompatibleException;
 import com.example.carservice.exception.OrderModificationNotAllowedException;
 import java.math.BigDecimal;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,9 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
 class DomainInvariantTest {
+    private static BigDecimal completionPrice = new BigDecimal("125.00");
+    private static Instant completionTime = Instant.parse("2026-10-29T12:00:00Z");
+
     private String customerId = "customer-domain";
     private String customerName = "Domain Customer";
     private String phoneNumber = "555-0100";
@@ -297,6 +301,37 @@ class DomainInvariantTest {
 
         // Then
         assertEquals(DomainMessages.workIndexOutOfRange(), exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Completes an order and stores its price and completion time")
+    void completesOrderWithDetails() {
+        // Given
+        RepairOrder order = createOrderInStatus(OrderStatus.IN_PROGRESS);
+        order.completeWork(0);
+
+        // When
+        order.complete(completionPrice, completionTime);
+
+        // Then
+        assertEquals(OrderStatus.COMPLETED, order.getStatus());
+        assertEquals(completionPrice, order.getFinalPrice());
+        assertEquals(completionTime, order.getCompletedAt());
+    }
+
+    @Test
+    @DisplayName("Rejects missing completion details without changing order state")
+    void rejectsMissingCompletionDetails() {
+        // Given
+        RepairOrder order = createOrderInStatus(OrderStatus.IN_PROGRESS);
+        order.completeWork(0);
+
+        // When
+        Runnable completeWithoutPrice = () -> order.complete(null, completionTime);
+
+        // Then
+        assertThrows(InvalidArgumentException.class, completeWithoutPrice::run);
+        assertEquals(OrderStatus.IN_PROGRESS, order.getStatus());
     }
 
     private RepairOrder createOrderInStatus(OrderStatus status) {

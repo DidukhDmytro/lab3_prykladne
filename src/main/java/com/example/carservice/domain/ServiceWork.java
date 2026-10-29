@@ -3,14 +3,49 @@ package com.example.carservice.domain;
 import com.example.carservice.exception.DomainMessages;
 import com.example.carservice.exception.InvalidArgumentException;
 import com.example.carservice.exception.InvalidStateTransitionException;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import java.math.BigDecimal;
 
+@Entity
+@Table(name = "service_works")
 public class ServiceWork {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "order_id", nullable = false)
+    private RepairOrder order;
+
+    @Column(name = "description", nullable = false, length = 255)
     private String description;
+
+    @Column(name = "parts_cost", nullable = false, precision = 12, scale = 2)
     private BigDecimal partsCost;
+
+    @Column(name = "labor_cost", nullable = false, precision = 12, scale = 2)
     private BigDecimal laborCost;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "required_specialization", nullable = false, length = 32)
     private MechanicSpecialization requiredSpecialization;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 32)
     private WorkStatus status;
+
+    protected ServiceWork() {
+    }
 
     public ServiceWork(
             String description,
@@ -34,6 +69,10 @@ public class ServiceWork {
         this.laborCost = laborCost;
         this.requiredSpecialization = requiredSpecialization;
         this.status = WorkStatus.PENDING;
+    }
+
+    void assignToOrder(RepairOrder order) {
+        this.order = order;
     }
 
     public String getDescription() {

@@ -1,0 +1,2 @@
+ALTER TABLE repair_orders
+    ADD COLUMN version BIGINT NOT NULL DEFAULT 0;

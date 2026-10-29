@@ -5,12 +5,12 @@ import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.exception.InvalidArgumentException;
 import com.example.carservice.exception.ServiceMessages;
 import com.example.carservice.repository.RepairOrderRepository;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class InMemoryRepairOrderRepository implements RepairOrderRepository {
     private Map<String, RepairOrder> orders = new HashMap<>();
@@ -37,17 +37,14 @@ public class InMemoryRepairOrderRepository implements RepairOrderRepository {
         if (status == null) {
             throw new InvalidArgumentException(ServiceMessages.repositoryStatusRequired());
         }
-        List<RepairOrder> matchingOrders = new ArrayList<>();
-        for (RepairOrder order : orders.values()) {
-            if (order.getStatus() == status) {
-                matchingOrders.add(order);
-            }
-        }
-        return Collections.unmodifiableList(matchingOrders);
+        return Collections.unmodifiableList(orders.values().stream()
+                .filter(order -> order.getStatus() == status)
+                .collect(Collectors.toList()));
     }
 
     @Override
     public List<RepairOrder> findAll() {
-        return Collections.unmodifiableList(new ArrayList<>(orders.values()));
+        return Collections.unmodifiableList(orders.values().stream()
+                .collect(Collectors.toList()));
     }
 }

@@ -32,6 +32,7 @@ public class DomainMessages {
     private static String closedOrder = "A completed or cancelled order cannot be modified.";
     private static String invalidCancelStatus = "Cannot cancel order in status: ";
     private static String giftOrderRequired = "A repair order is required to create a present.";
+    private static String completionDetailsRequired = "Final price and completion time are required.";
 
     public static String invalidVin() { return invalidVin; }
     public static String invalidPhoneNumber() { return invalidPhoneNumber; }
@@ -63,6 +64,7 @@ public class DomainMessages {
     public static String closedOrder() { return closedOrder; }
     public static String invalidCancelStatus() { return invalidCancelStatus; }
     public static String giftOrderRequired() { return giftOrderRequired; }
+    public static String completionDetailsRequired() { return completionDetailsRequired; }
 
     private DomainMessages() {
     }

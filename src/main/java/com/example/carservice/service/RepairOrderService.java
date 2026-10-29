@@ -15,20 +15,27 @@ import com.example.carservice.pricing.PricingPolicy;
 import com.example.carservice.repository.CarRepository;
 import com.example.carservice.repository.MechanicRepository;
 import com.example.carservice.repository.RepairOrderRepository;
+import java.time.Clock;
+import java.time.Instant;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Coordinates repair-order operations with repositories and pricing and gift policies.
  * Null identifiers and required object arguments are rejected with {@link InvalidArgumentException}.
  */
+@Service
+@Transactional
 public class RepairOrderService {
     private RepairOrderRepository repairOrderRepository;
     private CarRepository carRepository;
     private MechanicRepository mechanicRepository;
     private PricingPolicy pricingPolicy;
     private GiftPolicy giftPolicy;
+    private Clock clock;
 
     /**
      * Creates a service using the supplied dependencies.
@@ -39,12 +46,14 @@ public class RepairOrderService {
             CarRepository carRepository,
             MechanicRepository mechanicRepository,
             PricingPolicy pricingPolicy,
-            GiftPolicy giftPolicy) {
+            GiftPolicy giftPolicy,
+            Clock clock) {
         if (repairOrderRepository == null
                 || carRepository == null
                 || mechanicRepository == null
                 || pricingPolicy == null
-                || giftPolicy == null) {
+                || giftPolicy == null
+                || clock == null) {
             throw new InvalidArgumentException(ServiceMessages.serviceDependenciesRequired());
         }
         this.repairOrderRepository = repairOrderRepository;
@@ -52,6 +61,7 @@ public class RepairOrderService {
         this.mechanicRepository = mechanicRepository;
         this.pricingPolicy = pricingPolicy;
         this.giftPolicy = giftPolicy;
+        this.clock = clock;
     }
 
     /**
@@ -73,6 +83,7 @@ public class RepairOrderService {
      * Returns the order with the given id.
      * @throws EntityNotFoundException if the order is missing; {@link InvalidArgumentException} if the id is null
      */
+    @Transactional(readOnly = true)
     public RepairOrder getOrder(String orderId) {
         return getOrThrow(orderId);
     }
@@ -84,6 +95,23 @@ public class RepairOrderService {
     public RepairOrder addWork(String orderId, ServiceWork work) {
         RepairOrder order = getOrThrow(orderId);
         order.addWork(work);
+        return repairOrderRepository.save(order);
+    }
+
+    /**
+     * Adds a batch of work atomically.
+     * @throws InvalidArgumentException if the work list is null or empty
+     */
+    public RepairOrder addWorks(String orderId, List<ServiceWork> works) {
+        if (works == null) {
+            throw new InvalidArgumentException(ServiceMessages.workListRequired());
+        }
+        if (works.isEmpty()) {
+            throw new InvalidArgumentException(ServiceMessages.workListMustNotBeEmpty());
+        }
+        RepairOrder order = getOrThrow(orderId);
+        // Keep this operation inline: calling addWork through this instance bypasses the transactional proxy.
+        works.forEach(order::addWork);
         return repairOrderRepository.save(order);
     }
 
@@ -161,6 +189,9 @@ public class RepairOrderService {
     public RepairOrder complete(String orderId) {
         RepairOrder order = getOrThrow(orderId);
         order.complete();
+        BigDecimal finalPrice = pricingPolicy.calculateFinalPrice(order);
+        Instant completedAt = Instant.now(clock);
+        order.complete(finalPrice, completedAt);
         return repairOrderRepository.save(order);
     }
 
@@ -179,6 +210,7 @@ public class RepairOrderService {
      * Returns orders with the given status.
      * @throws InvalidArgumentException if status is null
      */
+    @Transactional(readOnly = true)
     public List<RepairOrder> findByStatus(OrderStatus status) {
         return repairOrderRepository.findByStatus(status);
     }
@@ -188,6 +220,7 @@ public class RepairOrderService {
      * @throws EntityNotFoundException if the order is missing;
      *         com.example.carservice.pricing.PricingException if pricing inputs are invalid
      */
+    @Transactional(readOnly = true)
     public BigDecimal calculateBasePrice(String orderId) {
         return pricingPolicy.calculateBasePrice(getOrThrow(orderId));
     }
@@ -197,6 +230,7 @@ public class RepairOrderService {
      * @throws EntityNotFoundException if the order is missing;
      *         com.example.carservice.pricing.PricingException if pricing inputs are invalid
      */
+    @Transactional(readOnly = true)
     public BigDecimal calculateFinalPrice(String orderId) {
         return pricingPolicy.calculateFinalPrice(getOrThrow(orderId));
     }
@@ -205,6 +239,7 @@ public class RepairOrderService {
      * Creates a gift present for an order.
      * @throws EntityNotFoundException if the order is missing
      */
+    @Transactional(readOnly = true)
     public Present createPresent(String orderId) {
         return giftPolicy.createPresent(getOrThrow(orderId));
     }

@@ -22,7 +22,9 @@ import com.example.carservice.domain.ServiceWork;
 import com.example.carservice.domain.WorkStatus;
 import com.example.carservice.exception.EntityAlreadyExistsException;
 import com.example.carservice.exception.EntityNotFoundException;
+import com.example.carservice.exception.InvalidArgumentException;
 import com.example.carservice.exception.InvalidStateTransitionException;
+import com.example.carservice.exception.MechanicNotCompatibleException;
 import com.example.carservice.exception.OrderModificationNotAllowedException;
 import com.example.carservice.exception.ServiceMessages;
 import com.example.carservice.pricing.PricingPolicy;
@@ -30,6 +32,9 @@ import com.example.carservice.repository.CarRepository;
 import com.example.carservice.repository.MechanicRepository;
 import com.example.carservice.repository.RepairOrderRepository;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +52,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class RepairOrderServiceTest {
+    private static Instant fixedInstant = Instant.parse("2026-10-29T12:00:00Z");
+    private static Clock fixedClock = Clock.fixed(fixedInstant, ZoneOffset.UTC);
+
     private String orderId = "order-test";
     private String vin = "VIN-TEST";
     private String mechanicId = "mechanic-test";
@@ -87,7 +95,8 @@ class RepairOrderServiceTest {
                 carRepository,
                 mechanicRepository,
                 pricingPolicy,
-                giftPolicy);
+                giftPolicy,
+                fixedClock);
     }
 
     @ParameterizedTest(name = "allows {0} from {1} to {2}")
@@ -107,12 +116,19 @@ class RepairOrderServiceTest {
             OrderStatus expected) {
         // Given
         prepareFor(initial, operation);
+        if (operation == OrderOperation.COMPLETE) {
+            when(pricingPolicy.calculateFinalPrice(order)).thenReturn(BigDecimal.ZERO);
+        }
 
         // When
         perform(operation);
 
         // Then
         assertEquals(expected, order.getStatus());
+        if (operation == OrderOperation.COMPLETE) {
+            assertEquals(BigDecimal.ZERO, order.getFinalPrice());
+            assertEquals(fixedInstant, order.getCompletedAt());
+        }
         verify(repairOrderRepository).save(order);
     }
 
@@ -176,6 +192,91 @@ class RepairOrderServiceTest {
 
         // Then
         assertThrows(InvalidStateTransitionException.class, completeOrder::run);
+    }
+
+    @Test
+    @DisplayName("Does not save completion when final pricing fails")
+    void pricingFailurePreventsCompletionSave() {
+        // Given
+        stubExistingOrder();
+        order.addWork(work);
+        order.diagnose();
+        order.approve();
+        order.assignMechanic(mechanic);
+        order.startProgress();
+        order.completeWork(firstWorkIndex);
+        when(pricingPolicy.calculateFinalPrice(order)).thenThrow(new IllegalStateException());
+
+        // When
+        Runnable completeOrder = () -> service.complete(orderId);
+
+        // Then
+        assertThrows(IllegalStateException.class, completeOrder::run);
+        verify(repairOrderRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Adds and saves a batch of work once")
+    void addsWorksAndSavesOnce() {
+        // Given
+        stubExistingOrder();
+        ServiceWork secondWork = new ServiceWork(
+                "Second repair",
+                BigDecimal.ONE,
+                BigDecimal.ONE,
+                MechanicSpecialization.GENERAL);
+        List<ServiceWork> works = List.of(work, secondWork);
+        when(repairOrderRepository.save(order)).thenReturn(order);
+
+        // When
+        RepairOrder result = service.addWorks(orderId, works);
+
+        // Then
+        assertSame(order, result);
+        assertEquals(works, order.getWorks());
+        verify(repairOrderRepository).save(order);
+    }
+
+    @Test
+    @DisplayName("Does not save a batch when an element is invalid")
+    void invalidWorkPreventsBatchSave() {
+        // Given
+        stubExistingOrder();
+        order.assignMechanic(new Mechanic(
+                mechanicId,
+                "Engine Mechanic",
+                MechanicSpecialization.ENGINE));
+        ServiceWork incompatibleWork = new ServiceWork(
+                "Brake repair",
+                BigDecimal.ONE,
+                BigDecimal.ONE,
+                MechanicSpecialization.BRAKES);
+        List<ServiceWork> works = List.of(work, incompatibleWork);
+
+        // When
+        Runnable addInvalidBatch = () -> service.addWorks(orderId, works);
+
+        // Then
+        assertThrows(MechanicNotCompatibleException.class, addInvalidBatch::run);
+        verify(repairOrderRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Rejects null and empty work batches")
+    void rejectsMissingWorkBatch() {
+        // Given
+        List<ServiceWork> nullWorks = null;
+        List<ServiceWork> emptyWorks = List.of();
+
+        // When
+        Runnable addNullBatch = () -> service.addWorks(orderId, nullWorks);
+        Runnable addEmptyBatch = () -> service.addWorks(orderId, emptyWorks);
+
+        // Then
+        assertThrows(InvalidArgumentException.class, addNullBatch::run);
+        assertThrows(InvalidArgumentException.class, addEmptyBatch::run);
+        verify(repairOrderRepository, never()).findById(orderId);
+        verify(repairOrderRepository, never()).save(any());
     }
 
     @Test

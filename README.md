@@ -1,93 +1,122 @@
 # Car Service
 
-A Java application for modeling car-service customers, cars, mechanics, repair orders, work,
-pricing, and customer gifts. The project uses Maven's standard source layout and includes a
-console demonstration and JUnit 5 tests.
+A Java 17 console application for registering customers, cars, and mechanics, managing repair
+orders, calculating prices, and persisting data in PostgreSQL.
 
 ## Requirements
 
-- JDK 17 or newer
-- Apache Maven 3.9 or compatible
+- JDK 17
+- Apache Maven
+- Docker with Docker Compose (for PostgreSQL and the Testcontainers integration tests)
 
-## Commands
+## Run the application
 
-Run the test suite:
+Start PostgreSQL:
+
+```sh
+docker compose up -d
+```
+
+Run the app:
+
+```sh
+mvn spring-boot:run
+```
+
+Run the same command a second time after the first run finishes. The runner is idempotent: the
+second run prints `order-complete loaded from database`, followed by the stored order, works,
+completion status, price, and timestamp. This confirms that the order was loaded from PostgreSQL,
+not recreated. The database connection defaults to `jdbc:postgresql://localhost:5432/carservice`
+with user/password `carservice`; set `DB_URL`, `DB_USERNAME`, or `DB_PASSWORD` to override them.
+Stop PostgreSQL when finished with `docker compose down`; the named volume preserves its data.
+
+## Tests
+
+Run unit tests (no Docker required):
 
 ```sh
 mvn clean test
 ```
 
-Compile the application and run the console demo:
+Run the full suite, including PostgreSQL integration tests (Docker required):
 
 ```sh
-mvn compile exec:java
+mvn clean verify
 ```
+
+Testcontainers starts PostgreSQL for integration tests. Integration tests are intentionally not
+wrapped in test-managed transactions, so service transaction commits and rollbacks are exercised.
 
 ## Project structure
 
 ```text
 src/
 ├── main/java/com/example/carservice/
-│   ├── app/          # Demo and demonstration pricing rules
-│   ├── config/       # Shared application constants
-│   ├── domain/       # Repair-order and related business objects
+│   ├── app/          # Spring CommandLineRunner and demo pricing rules
+│   ├── config/       # Application constants and pricing/clock beans
+│   ├── domain/       # JPA-mapped domain objects and business rules
 │   ├── exception/    # Domain and application exceptions/messages
-│   ├── pricing/      # Pricing pipeline and reusable rules
-│   ├── repository/   # Repository interfaces and in-memory adapters
-│   └── service/      # Application services and gift policy
+│   ├── pricing/      # Pricing policy, engine, contexts, and rules
+│   ├── repository/   # Spring Data repository interfaces and memory adapters
+│   └── service/      # Registration, repair-order, and gift services
+├── main/resources/
+│   └── db/migration/ # Flyway SQL migrations
 └── test/java/com/example/carservice/
-    ├── domain/
-    ├── pricing/
-    ├── repository/
-    └── service/
+    ├── domain/       # Domain invariant tests
+    ├── integration/  # PostgreSQL/Testcontainers integration tests
+    ├── pricing/      # Pricing tests
+    ├── repository/   # In-memory repository tests
+    └── service/      # Service unit tests
 ```
 
 ## Architecture
 
-- **Domain:** `RepairOrder`, `ServiceWork`, `Mechanic`, `Car`, and `Customer` model the business
-  state and enforce their own invariants and allowed state transitions.
-- **Repository:** interfaces define storage operations; `repository.memory` provides
-  `HashMap` implementations for `CustomerRepository`, `CarRepository`,
-  `MechanicRepository`, and `RepairOrderRepository`. Services depend on these interfaces, so
-  application behavior is independent of storage details and repositories can be replaced or
-  mocked. In-memory `findAll()` and `findByStatus()` calls return unmodifiable copies in
-  unspecified order; callers must not rely on the order. Saving a customer, mechanic, or repair
-  order with an existing id replaces its stored entry. In contrast, `InMemoryCarRepository.save`
-  throws `EntityAlreadyExistsException` when the VIN already exists.
-- **Service:** `RepairOrderService` coordinates repository access and domain operations.
-  `RegistrationService` handles customer, car, and mechanic registration, and `GiftPolicy` selects
-  gifts by parts total. `RegistrationService.registerMechanic` does not check for duplicate
-  mechanic ids; saving an existing id replaces its stored entry.
-- **Pricing:** `PricingRuleEngine` applies `PricingRule`s to a non-null `PricingContext` in ascending
-  priority order. It requires a non-null rule list without null elements, a non-negative minimum
-  price, and non-null results from every rule; invalid input raises `PricingException`.
-  `PricingContext` can be created directly from pricing totals and flags without a `RepairOrder`,
-  and the engine can run independently of the service domain.
-  Negative rule results are clamped to zero before applying the minimum price. The result is never
-  null or below the minimum and is rounded exactly once at the end to scale 2 using
-  `RoundingMode.HALF_UP`. The engine does not mutate inputs, copies and sorts the rules once at
-  construction, and repeated calls with equal context return equal results when rules are
-  stateless and deterministic. Fixed and percentage discounts are order-sensitive because fixed
-  discounts subtract an amount before/after percentage scaling; two percentage discounts commute
-  because each scales the total by a factor, and multiplying those factors gives the same result
-  in either order. `PricingPolicy` is the service-facing abstraction, and `PriceCalculator` adapts
-  `RepairOrder` data into `PricingContext`. `PricingException` extends
-  `IllegalArgumentException`, not `DomainException`, so pricing errors are not caught by handlers
-  that catch only `DomainException`.
-- **Missing orders:** repository lookups return `Optional.empty()` when no order is found.
-  `RepairOrderService` converts that result to `EntityNotFoundException` when an order is required.
+- **Domain:** `Customer`, `Car`, `Mechanic`, `RepairOrder`, and `ServiceWork` hold business state
+  and enforce invariants and transitions. These same domain classes are the JPA entities; gifts and
+  presents are not entities.
+- **Services and transactions:** `RegistrationService` and `RepairOrderService` use constructor
+  injection. `RepairOrderService` is `@Transactional`; read operations are read-only. Completion
+  updates order status, releases its mechanic, calculates the final price, records the completion
+  time, and saves as one transaction. `addWorks` validates and adds the batch in one transaction
+  and saves once. Runtime exceptions trigger Spring's default rollback behavior, so failures do not
+  persist partial completion or batch changes.
+- **Repositories:** `CustomerRepository`, `CarRepository`, `MechanicRepository`, and
+  `RepairOrderRepository` are Spring Data repository interfaces. Missing lookups return
+  `Optional.empty()`. `RepairOrderRepository` uses `@EntityGraph` and fetch-join queries for
+  relationships needed outside a transaction. The `repository.memory` implementations remain for
+  unit tests and are not registered as application beans.
+- **Pricing:** `PricingPolicy` is the service-facing abstraction. `PriceCalculator` adapts order
+  totals into `PricingContext`; `PricingRuleEngine` orders and applies rules, clamps negative
+  results, applies the minimum, and rounds once to two decimals.
+- **Runner:** `CarServiceDemoRunner` is a `CommandLineRunner` active outside the `test` profile. It
+  demonstrates registration, order lifecycle and persistence, pricing, expected error cases, and
+  an optimistic-lock conflict.
 
-## Design rationale
+## Database schema and migrations
 
-- `RepairOrderRepository` and `PricingPolicy`/`PricingRule` invert dependencies, allow storage and
-  pricing implementations to be replaced, and support mocks in tests; new pricing rules can be
-  added without changing the engine.
-- `GiftPolicy` has no interface because it is a small, single implementation with no current need
-  for interchangeable policies.
-- Services call `repository.save()` after each domain operation to preserve the persistence boundary
-  for replaceable repositories, even though the in-memory repository holds the same object instance.
-- `OldCarDiscountRule` receives the current year in its constructor so its age calculation is
-  deterministic in tests.
+Flyway owns schema changes; Hibernate validates the resulting schema
+(`spring.jpa.hibernate.ddl-auto=validate`). V1 creates customers, cars, mechanics, repair orders,
+and ordered service works, including enum and non-negative-cost checks, foreign keys, and indexes.
+V2 adds the non-null `repair_orders.version` column used for optimistic locking. Do not edit an
+already-applied migration; add a new versioned migration for future schema changes.
+
+## Transactions and optimistic locking
+
+`RepairOrderService.complete` and `addWorks` each form a transaction boundary. If a runtime
+exception occurs before commit, Spring rolls back the transaction by default. `addWorks` performs
+the work additions directly in its transactional method instead of calling another service method
+through `this`; self-invocation bypasses Spring's proxy and would not create a separate proxy-based
+transaction boundary.
+
+`RepairOrder.version` is annotated with JPA `@Version`. Hibernate's update includes the previous
+version in a predicate equivalent to
+`UPDATE repair_orders SET ..., version = ? WHERE id = ? AND version = ?`. A concurrent update that
+has already advanced the version makes the stale update affect no row; Spring reports
+`ObjectOptimisticLockingFailureException`, typically during flush or commit. This is optimistic
+locking: no database row lock is held during the edit, and conflicts are detected on write.
+Pessimistic locking acquires a database lock up front and can block competing transactions. The
+`OptimisticLockingIT` integration tests coordinate two transactions, verify the stale update fails,
+and demonstrate that reloading before retrying succeeds.
 
 ## Business rules
 
@@ -96,19 +125,10 @@ src/
 | Car VIN and owner are required | `Car` constructor |
 | Customer id, name, and phone number are required | `Customer` constructor |
 | Mechanic id, name, and specialization are required; mechanics start free | `Mechanic` constructor |
-| Work description, costs, and specialization are valid; zero costs are allowed and negative costs are rejected | `ServiceWork` constructor |
-| Repair-order id and car are required | `RepairOrder` constructor |
-| Work and assigned mechanics are required when added or assigned; an assigned mechanic must be compatible with all work, and later work must remain compatible | `RepairOrder.addWork` and `RepairOrder.assignMechanic` |
-| Busy mechanics cannot be assigned to another order | `Mechanic.assignToOrder` |
-| Approval requires at least one work item | `RepairOrder.approve` |
-| Progress requires an approved order and an assigned mechanic | `RepairOrder.startProgress` |
-| Individual work can be completed only on an in-progress order and only at a valid work-list index | `RepairOrder.completeWork` |
-| Completion requires an in-progress order and all work completed; completing or cancelling releases its mechanic | `RepairOrder.complete` and `RepairOrder.cancel` |
+| Work description, costs, and specialization are valid; zero costs are allowed | `ServiceWork` constructor |
+| An assigned mechanic must be compatible with all work | `RepairOrder.addWork` and `RepairOrder.assignMechanic` |
+| Approval requires work; progress requires approval and an assigned mechanic | `RepairOrder.approve` and `RepairOrder.startProgress` |
+| Completion requires all work complete; completion and cancellation release the mechanic | `RepairOrder.complete` and `RepairOrder.cancel` |
 | Completed or cancelled orders cannot be modified | `RepairOrder` modification operations |
-| Duplicate customer ids, car VINs, and repair-order ids are rejected | `RegistrationService.registerCustomer`, `InMemoryCarRepository.save`, and `RepairOrderService.createOrder` |
-| Saving a customer, mechanic, or repair order with an existing id replaces its stored entry | In-memory repository `save` operations; `RegistrationService.registerMechanic` does not check duplicates |
-| A car can be registered only when its owner is a registered customer | `RegistrationService.registerCar` |
 | Urgent priority adds a surcharge to labor only | `UrgentSurchargeRule` |
-| Parts-total gift tiers select washer fluid, interior cleaning, or a discount voucher | `GiftPolicy` |
-| Pricing-rule constructor parameters are validated; old-car discounts use the injected current year and age limit | Pricing rule constructors |
-| Pricing applies rules in ascending stable priority order, clamps negative totals, rounds once with `HALF_UP`, and respects a minimum price | `PricingRuleEngine` |
+| Parts-total gift tiers select washer fluid, interior cleaning, or a voucher | `GiftPolicy` |

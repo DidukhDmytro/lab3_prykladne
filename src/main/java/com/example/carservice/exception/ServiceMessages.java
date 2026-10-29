@@ -16,6 +16,8 @@ public class ServiceMessages {
     private static String repositoryCustomerRequired = "A customer is required.";
     private static String mechanicNotFound = "Mechanic '%s' was not found.";
     private static String serviceDependenciesRequired = "Service dependencies are required.";
+    private static String workListRequired = "A work list is required.";
+    private static String workListMustNotBeEmpty = "A work list must not be empty.";
 
     public static String entityRequired() { return entityRequired; }
     public static String duplicateEntity() { return duplicateEntity; }
@@ -32,6 +34,8 @@ public class ServiceMessages {
     public static String repositoryCustomerRequired() { return repositoryCustomerRequired; }
     public static String mechanicNotFound() { return mechanicNotFound; }
     public static String serviceDependenciesRequired() { return serviceDependenciesRequired; }
+    public static String workListRequired() { return workListRequired; }
+    public static String workListMustNotBeEmpty() { return workListMustNotBeEmpty; }
 
     private ServiceMessages() {
     }

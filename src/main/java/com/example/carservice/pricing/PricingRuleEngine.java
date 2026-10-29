@@ -5,6 +5,9 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Applies portable pricing rules to immutable pricing context data.
@@ -42,11 +45,12 @@ public class PricingRuleEngine {
         if (minimumPrice.compareTo(zeroPrice) < 0) {
             throw new PricingException(PricingMessages.negativeMinimumPrice());
         }
-        this.rules = new ArrayList<>(rules);
-        if (this.rules.contains(null)) {
+        if (rules.stream().anyMatch(Objects::isNull)) {
             throw new PricingException(PricingMessages.pricingRuleRequired());
         }
-        this.rules.sort(Comparator.comparingInt(PricingRule::getPriority));
+        this.rules = rules.stream()
+                .sorted(Comparator.comparingInt(PricingRule::getPriority))
+                .collect(Collectors.toCollection(ArrayList::new));
         this.minimumPrice = minimumPrice;
     }
 
@@ -59,13 +63,16 @@ public class PricingRuleEngine {
 
     public BigDecimal calculateFinalPrice(PricingContext context) {
         validateContext(context);
-        BigDecimal total = context.getPartsTotal().add(context.getLaborTotal());
-        for (PricingRule rule : rules) {
-            total = rule.apply(context, total);
-            if (total == null) {
-                throw new PricingException(PricingMessages.pricingRuleResultRequired());
-            }
-        }
+        Function<BigDecimal, BigDecimal> rulePipeline = rules.stream()
+                .<Function<BigDecimal, BigDecimal>>map(rule -> currentTotal -> {
+                    BigDecimal result = rule.apply(context, currentTotal);
+                    if (result == null) {
+                        throw new PricingException(PricingMessages.pricingRuleResultRequired());
+                    }
+                    return result;
+                })
+                .reduce(Function.identity(), (firstRule, nextRule) -> firstRule.andThen(nextRule));
+        BigDecimal total = rulePipeline.apply(context.getPartsTotal().add(context.getLaborTotal()));
         return total.max(zeroPrice).max(minimumPrice).setScale(priceScale, RoundingMode.HALF_UP);
     }
 

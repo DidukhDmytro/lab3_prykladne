@@ -10,10 +10,12 @@ import com.example.carservice.exception.ServiceMessages;
 import com.example.carservice.repository.CarRepository;
 import com.example.carservice.repository.CustomerRepository;
 import com.example.carservice.repository.MechanicRepository;
+import org.springframework.stereotype.Service;
 
 /**
  * Registers customers, cars, and mechanics.
  */
+@Service
 public class RegistrationService {
     private CarRepository carRepository;
     private MechanicRepository mechanicRepository;
@@ -62,6 +64,10 @@ public class RegistrationService {
         customerRepository.findById(customerId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         String.format(ServiceMessages.customerNotFound(), customerId)));
+        if (carRepository.findByVin(car.getVin()).isPresent()) {
+            throw new EntityAlreadyExistsException(
+                    String.format(ServiceMessages.duplicateVin(), car.getVin()));
+        }
         return carRepository.save(car);
     }
 

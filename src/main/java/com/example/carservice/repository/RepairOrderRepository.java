@@ -4,21 +4,31 @@ import com.example.carservice.domain.OrderStatus;
 import com.example.carservice.domain.RepairOrder;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.Repository;
+import org.springframework.data.repository.query.Param;
 
 /**
- * Stores repair orders by identifier.
+ * Provides persistent access to repair orders.
  *
- * <p>Saving an order with an existing identifier replaces the stored order. Lookup methods return
- * {@link Optional#empty()} when no matching order exists and never throw merely because an order
- * is missing. {@link #findAll()} and {@link #findByStatus(OrderStatus)} return unmodifiable lists
- * whose order is unspecified.</p>
+ * <p>Lookup returns {@link Optional#empty()} when an order is missing. Fetch methods load the
+ * associated work and repair-order references needed by callers.</p>
  */
-public interface RepairOrderRepository {
+public interface RepairOrderRepository extends Repository<RepairOrder, String> {
     RepairOrder save(RepairOrder order);
 
+    @EntityGraph(attributePaths = {"works", "car", "car.owner", "assignedMechanic"})
     Optional<RepairOrder> findById(String id);
 
-    List<RepairOrder> findByStatus(OrderStatus status);
+    @Query("select distinct repairOrder from RepairOrder repairOrder "
+            + "left join fetch repairOrder.works "
+            + "left join fetch repairOrder.car "
+            + "left join fetch repairOrder.assignedMechanic "
+            + "where repairOrder.status = :status")
+    List<RepairOrder> findByStatus(@Param("status") OrderStatus status);
 
+    @Query("select distinct repairOrder from RepairOrder repairOrder "
+            + "left join fetch repairOrder.works")
     List<RepairOrder> findAll();
 }

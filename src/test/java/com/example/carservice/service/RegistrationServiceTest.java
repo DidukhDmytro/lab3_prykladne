@@ -84,6 +84,22 @@ class RegistrationServiceTest {
     }
 
     @Test
+    @DisplayName("Rejects registering a car with an existing VIN")
+    void rejectsDuplicateCarVin() {
+        // Given
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customer));
+        when(carRepository.findByVin(vin)).thenReturn(Optional.of(car));
+
+        // When
+        EntityAlreadyExistsException exception =
+                assertThrows(EntityAlreadyExistsException.class, () -> service.registerCar(car));
+
+        // Then
+        assertEquals(String.format(ServiceMessages.duplicateVin(), vin), exception.getMessage());
+        verify(carRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("Registers a customer and a car with that owner")
     void registersCustomerAndOwnedCar() {
         // Given

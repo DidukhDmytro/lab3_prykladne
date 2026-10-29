@@ -3,14 +3,34 @@ package com.example.carservice.domain;
 import com.example.carservice.exception.DomainMessages;
 import com.example.carservice.exception.InvalidArgumentException;
 import com.example.carservice.exception.MechanicAlreadyAssignedException;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
+@Entity
+@Table(name = "mechanics")
 public class Mechanic {
     private static String mechanicAlreadyAssignedMessage = "Mechanic is already assigned to an order.";
 
+    @Id
+    @Column(name = "id", length = 64)
     private String id;
+
+    @Column(name = "full_name", nullable = false, length = 255)
     private String fullName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "specialization", nullable = false, length = 32)
     private MechanicSpecialization specialization;
+
+    @Column(name = "busy", nullable = false)
     private boolean busy;
+
+    protected Mechanic() {
+    }
 
     public Mechanic(String id, String fullName, MechanicSpecialization specialization) {
         if (id == null || id.isBlank()) {

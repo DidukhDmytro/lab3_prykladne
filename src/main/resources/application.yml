@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/carservice}
+    username: ${DB_USERNAME:carservice}
+    password: ${DB_PASSWORD:carservice}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+  main:
+    web-application-type: none

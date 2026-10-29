@@ -4,12 +4,12 @@ import com.example.carservice.domain.Customer;
 import com.example.carservice.exception.InvalidArgumentException;
 import com.example.carservice.exception.ServiceMessages;
 import com.example.carservice.repository.CustomerRepository;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class InMemoryCustomerRepository implements CustomerRepository {
     private Map<String, Customer> customers = new HashMap<>();
@@ -33,6 +33,7 @@ public class InMemoryCustomerRepository implements CustomerRepository {
 
     @Override
     public List<Customer> findAll() {
-        return Collections.unmodifiableList(new ArrayList<>(customers.values()));
+        return Collections.unmodifiableList(customers.values().stream()
+                .collect(Collectors.toList()));
     }
 }
