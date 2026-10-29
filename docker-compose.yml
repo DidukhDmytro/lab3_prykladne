@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: carservice
       POSTGRES_USER: carservice
-      POSTGRES_PASSWORD: "${DB_PASSWORD:?Set DB_PASSWORD in your environment}"
+      POSTGRES_PASSWORD: carservice
     ports:
       - "5432:5432"
     volumes:
