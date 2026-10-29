@@ -22,6 +22,7 @@ import com.example.carservice.integration.PostgresIntegrationTestConfiguration.A
 import com.example.carservice.repository.RepairOrderRepository;
 import com.example.carservice.service.RegistrationService;
 import com.example.carservice.service.RepairOrderService;
+import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -76,7 +77,7 @@ class RepairOrderPersistenceIT extends PostgresIntegrationTest {
     private static int firstPosition = 0;
     private static int secondPosition = 1;
     private static int expectedWorkCount = 2;
-    private static int threeWorkCount = 3;
+    private static int workBatchSize = 3;
     private static Instant expectedCompletionTime = Instant.parse("2026-10-29T12:00:00Z");
 
     private RegistrationService registrationService;
@@ -84,12 +85,12 @@ class RepairOrderPersistenceIT extends PostgresIntegrationTest {
     private RepairOrderRepository repairOrderRepository;
     private JdbcTemplate jdbcTemplate;
     private AdjustablePricingPolicy adjustablePricingPolicy;
-    private jakarta.persistence.EntityManager entityManager;
+    private EntityManager entityManager;
 
     @Autowired
     RepairOrderPersistenceIT(
             JdbcTemplate jdbcTemplate,
-            jakarta.persistence.EntityManager entityManager,
+            EntityManager entityManager,
             RegistrationService registrationService,
             RepairOrderService repairOrderService,
             RepairOrderRepository repairOrderRepository,
@@ -135,6 +136,20 @@ class RepairOrderPersistenceIT extends PostgresIntegrationTest {
                 .get(secondPosition).getRequiredSpecialization().name());
         assertEquals(expectedWorkCount, approvedOrders.get(0).getWorks().size());
         assertEquals(mechanicId, approvedOrders.get(0).getAssignedMechanic().getId());
+    }
+
+    @Test
+    @DisplayName("Loads the car owner with orders returned by status lookup")
+    void loadsCarOwnerOutsideTransactionForStatusLookup() {
+        // Given
+        createOrderInStatus(OrderStatus.APPROVED);
+        entityManager.clear();
+
+        // When
+        List<RepairOrder> approvedOrders = repairOrderRepository.findByStatus(OrderStatus.APPROVED);
+
+        // Then
+        assertEquals(customerName, approvedOrders.get(0).getCar().getOwner().getFullName());
     }
 
     @Test
@@ -202,7 +217,9 @@ class RepairOrderPersistenceIT extends PostgresIntegrationTest {
         repairOrderService.addWorks(orderId, works);
 
         // Then
-        assertEquals(threeWorkCount, jdbcTemplate.queryForObject(workCountQuery, Integer.class, orderId));
+        assertEquals(
+                expectedWorkCount + workBatchSize,
+                jdbcTemplate.queryForObject(workCountQuery, Integer.class, orderId));
     }
 
     @Test

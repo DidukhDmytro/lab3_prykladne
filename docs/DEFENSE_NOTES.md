@@ -50,6 +50,16 @@
 
 ## Spring
 
+- **Run instructions and lifecycle:** Start PostgreSQL with `docker compose up -d`, then run
+  `mvn spring-boot:run`. The first run creates the demo order and stops at `IN_PROGRESS`; the
+  second loads it from the database, completes it, and prints its final price and completion time;
+  later runs display the saved completed order without changing it. Run `docker compose down -v &&
+  docker compose up -d` to repeat from a fresh database.
+- **Test commands:** `mvn clean test` runs unit tests without Docker. `mvn clean verify` also runs
+  Testcontainers PostgreSQL integration tests and requires Docker. If Testcontainers cannot
+  connect to a newer Docker Engine, use the daemon minimum reported by `docker version` as
+  `api.version` in `~/.docker-java.properties` (for example `api.version=1.44`).
+
 - **Spring Framework and Spring Boot:** Spring Framework provides the container, dependency
   injection, transactions, and other application infrastructure. Spring Boot builds on Spring
   Framework with auto-configuration, starter dependencies, and a convenient application launcher.
@@ -83,26 +93,35 @@
   string keys are assigned by the application; `ServiceWork.id` is database-generated.
 - **Relationships and owning side:** `Car.owner` is a `@ManyToOne` relationship with the
   `owner_id` foreign key. `RepairOrder.car` and `RepairOrder.assignedMechanic` are also
-  `@ManyToOne` relationships, using `car_vin` and `mechanic_id`. `ServiceWork.order` owns the work
-  relationship because it stores `order_id`; `RepairOrder.works` is the inverse side with
-  `mappedBy = "order"`, cascading and ordered by `position`. Updating both sides when adding or
-  removing work keeps the object graph consistent.
+  `@ManyToOne` relationships, using `car_vin` and `mechanic_id`. `RepairOrder.works` owns the
+  unidirectional work relationship: `@OneToMany`, `@JoinColumn(name = "order_id")`, and
+  `@OrderColumn(name = "position")` are on the owning collection. This makes Hibernate persist the
+  owning foreign key and non-null list position with inserted work rows; combining an order column
+  with `mappedBy` did not reliably write the position. The mapping cascades changes and preserves
+  list order.
 - **LAZY and EAGER:** LAZY loading defers fetching a relationship until access; EAGER loading loads
   it with the entity query. The entity relationships here use LAZY loading. To safely access
   required relations after a repository transaction, `RepairOrderRepository.findById` uses
   `@EntityGraph` for works, car, car owner, and mechanic. Its status and all-order queries use
   `JOIN FETCH` for works and the status query also fetches car and mechanic.
 - **Flyway:** Flyway applies ordered, versioned SQL migrations and records applied versions in its
-  schema-history table. V1 creates the car-service schema; V2 adds `repair_orders.version`.
-  Hibernate is configured to validate the migrated schema, not create it.
+  schema-history table. `V1__init_schema.sql` creates the car-service schema; V2 adds
+  `repair_orders.version`; V3 adds `mechanics.version`. Hibernate validates the migrated schema,
+  rather than creating it. Never edit an applied migration; add a new version for schema changes.
 - **ACID:** Atomicity means all-or-nothing; Consistency preserves constraints and invariants;
   Isolation separates concurrent transactions; Durability preserves committed data. PostgreSQL
   transactions and the service transaction boundaries provide these properties.
-- **Optimistic vs pessimistic locking:** `RepairOrder.version` has `@Version`. Hibernate issues an
+- **Transactions and optimistic locking:** `RepairOrderService.complete` calculates final price
+  first, then performs completion validation, status change, mechanic release, and completion-time
+  recording in one domain operation and transaction. `RepairOrder.version` and `Mechanic.version`
+  both use `@Version`. Hibernate issues an
   update with both id and previous version in the predicate, equivalent to
   `UPDATE ... WHERE id = ? AND version = ?`, and increments the version on success. If no row
   matches, `ObjectOptimisticLockingFailureException` is typically raised at flush or commit.
   Optimistic locking holds no database row lock throughout the edit and detects conflicts on write;
   pessimistic locking obtains a database lock up front and can make other transactions wait.
   `OptimisticLockingIT` coordinates two transactions to show a stale update failing and a reload
-  followed by retry succeeding. In-memory repositories remain available for focused unit tests.
+  followed by retry succeeding. `Mechanic.version` uses the same mechanism to reject concurrent
+  assignments that both read the mechanic as free; the committed mechanic state and assignment are
+  therefore preserved by exactly one transaction. In-memory repositories remain available for
+  focused unit tests.

@@ -23,12 +23,15 @@ public interface RepairOrderRepository extends Repository<RepairOrder, String> {
 
     @Query("select distinct repairOrder from RepairOrder repairOrder "
             + "left join fetch repairOrder.works "
-            + "left join fetch repairOrder.car "
+            + "left join fetch repairOrder.car car "
+            + "left join fetch car.owner "
             + "left join fetch repairOrder.assignedMechanic "
             + "where repairOrder.status = :status")
     List<RepairOrder> findByStatus(@Param("status") OrderStatus status);
 
     @Query("select distinct repairOrder from RepairOrder repairOrder "
-            + "left join fetch repairOrder.works")
+            + "left join fetch repairOrder.works "
+            + "left join fetch repairOrder.car car "
+            + "left join fetch car.owner")
     List<RepairOrder> findAll();
 }

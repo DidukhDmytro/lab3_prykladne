@@ -10,7 +10,9 @@ import com.example.carservice.exception.ServiceMessages;
 import com.example.carservice.repository.CarRepository;
 import com.example.carservice.repository.CustomerRepository;
 import com.example.carservice.repository.MechanicRepository;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Registers customers, cars, and mechanics.
@@ -35,6 +37,39 @@ public class RegistrationService {
         this.customerRepository = customerRepository;
         this.carRepository = carRepository;
         this.mechanicRepository = mechanicRepository;
+    }
+
+    /**
+     * Finds a customer by identifier.
+     * @param customerId customer identifier
+     * @return the customer if it exists
+     */
+    @Transactional(readOnly = true)
+    public Optional<Customer> findCustomer(String customerId) {
+        requireIdentifier(customerId);
+        return customerRepository.findById(customerId);
+    }
+
+    /**
+     * Finds a car by VIN.
+     * @param vin vehicle identification number
+     * @return the car if it exists
+     */
+    @Transactional(readOnly = true)
+    public Optional<Car> findCar(String vin) {
+        requireIdentifier(vin);
+        return carRepository.findByVin(vin);
+    }
+
+    /**
+     * Finds a mechanic by identifier.
+     * @param mechanicId mechanic identifier
+     * @return the mechanic if it exists
+     */
+    @Transactional(readOnly = true)
+    public Optional<Mechanic> findMechanic(String mechanicId) {
+        requireIdentifier(mechanicId);
+        return mechanicRepository.findById(mechanicId);
     }
 
     /**
@@ -76,6 +111,15 @@ public class RegistrationService {
      * @throws InvalidArgumentException if mechanic is null
      */
     public Mechanic registerMechanic(Mechanic mechanic) {
+        if (mechanic == null) {
+            throw new InvalidArgumentException(ServiceMessages.serviceMechanicRequired());
+        }
         return mechanicRepository.save(mechanic);
+    }
+
+    private void requireIdentifier(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            throw new InvalidArgumentException(ServiceMessages.serviceIdentifierRequired());
+        }
     }
 }

@@ -37,10 +37,10 @@ public class RepairOrder {
     private Car car;
 
     @OneToMany(
-            mappedBy = "order",
             cascade = CascadeType.ALL,
             orphanRemoval = true)
-    @OrderColumn(name = "position")
+    @JoinColumn(name = "order_id", nullable = false)
+    @OrderColumn(name = "position", nullable = false)
     private List<ServiceWork> works;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -154,17 +154,12 @@ public class RepairOrder {
         if (assignedMechanic != null && !isCompatible(work, assignedMechanic)) {
             throw new MechanicNotCompatibleException(DomainMessages.mechanicNotCompatible());
         }
-        work.assignToOrder(this);
         works.add(work);
     }
 
     public boolean removeWork(ServiceWork work) {
         ensureModifiable();
-        boolean removed = works.remove(work);
-        if (removed && !works.contains(work)) {
-            work.assignToOrder(null);
-        }
-        return removed;
+        return works.remove(work);
     }
 
     public void assignMechanic(Mechanic mechanic) {
@@ -225,23 +220,13 @@ public class RepairOrder {
         works.get(workIndex).complete();
     }
 
-    public void complete() {
-        validateCompletion();
-        status = OrderStatus.COMPLETED;
-        assignedMechanic.releaseFromOrder();
-    }
-
     public void complete(BigDecimal finalPrice, Instant completedAt) {
         if (finalPrice == null || completedAt == null) {
             throw new InvalidArgumentException(DomainMessages.completionDetailsRequired());
         }
-        if (status == OrderStatus.IN_PROGRESS) {
-            complete();
-        } else if (status != OrderStatus.COMPLETED
-                || this.finalPrice != null
-                || this.completedAt != null) {
-            throw new InvalidStateTransitionException(DomainMessages.invalidCompleteStatus());
-        }
+        validateCompletion();
+        status = OrderStatus.COMPLETED;
+        assignedMechanic.releaseFromOrder();
         this.finalPrice = finalPrice;
         this.completedAt = completedAt;
     }

@@ -18,15 +18,14 @@ import com.example.carservice.pricing.rule.FixedDiscountRule;
 import com.example.carservice.pricing.rule.PercentageDiscountRule;
 import com.example.carservice.service.RegistrationService;
 import com.example.carservice.service.RepairOrderService;
-import com.example.carservice.repository.CarRepository;
-import com.example.carservice.repository.CustomerRepository;
-import com.example.carservice.repository.MechanicRepository;
-import com.example.carservice.repository.RepairOrderRepository;
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -59,9 +58,12 @@ public class CarServiceDemoRunner implements CommandLineRunner {
     private static String batchOrderId = "order-demo-batch-rollback";
     private static String missingOrderId = "order-demo-missing";
     private static String optimisticOrderId = "order-demo-optimistic-lock";
+    private static String restartInstruction =
+            "Run the application again to load and complete this order.";
     private static String registrationFormat = "%s -> %s";
     private static String loadedOrderFormat = "%s loaded from database -> status: %s";
     private static String mechanicFormat = "Assigned mechanic: %s";
+    private static String orderStatusFormat = "Order status: %s";
     private static String noMechanicLabel = "none";
     private static String workFormat = "Work: %s | status: %s | parts: %s | labor: %s";
     private static String completionFormat =
@@ -84,10 +86,13 @@ public class CarServiceDemoRunner implements CommandLineRunner {
     private static String invalidTransitionLabel = "Completing an order before progress";
     private static String missingOrderLabel = "Loading a missing order";
     private static String batchFailureLabel = "Adding a batch with an invalid last work item";
+    private static String duplicateOrderLabel = "Creating a duplicate order";
     private static String optimisticLockLabel = "Concurrent order priority update";
     private static String optimisticLockFailureFormat = "%s -> expected optimistic-lock conflict: %s";
     private static String missingOptimisticLockFormat = "%s -> expected optimistic-lock conflict did not occur";
     private static String optimisticLockOrderMissingMessage = "Optimistic-lock demo order was not found.";
+    private static String latchTimeoutMessage = "Timed out waiting for the competing transaction.";
+    private static String staleWriterThreadName = "demo-optimistic-stale-writer";
     private static String engineDescription = "Engine service";
     private static String brakesDescription = "Brake service";
     private static String batchDescription = "Batch rollback check";
@@ -102,31 +107,22 @@ public class CarServiceDemoRunner implements CommandLineRunner {
     private static BigDecimal fixedDiscountAmount = new BigDecimal("100.00");
     private static BigDecimal customSurchargeAmount = new BigDecimal("25.00");
     private static int firstWorkIndex = 0;
+    private static int latchInitialCount = 1;
+    private static long coordinationTimeoutSeconds = 10;
+    private static long threadJoinTimeoutMillis = 10000;
 
     private RegistrationService registrationService;
     private RepairOrderService repairOrderService;
-    private CustomerRepository customerRepository;
-    private CarRepository carRepository;
-    private MechanicRepository mechanicRepository;
-    private RepairOrderRepository repairOrderRepository;
     private PricingPolicy pricingPolicy;
     private TransactionTemplate transactionTemplate;
 
     public CarServiceDemoRunner(
             RegistrationService registrationService,
             RepairOrderService repairOrderService,
-            CustomerRepository customerRepository,
-            CarRepository carRepository,
-            MechanicRepository mechanicRepository,
-            RepairOrderRepository repairOrderRepository,
             PricingPolicy pricingPolicy,
             PlatformTransactionManager transactionManager) {
         this.registrationService = registrationService;
         this.repairOrderService = repairOrderService;
-        this.customerRepository = customerRepository;
-        this.carRepository = carRepository;
-        this.mechanicRepository = mechanicRepository;
-        this.repairOrderRepository = repairOrderRepository;
         this.pricingPolicy = pricingPolicy;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
@@ -147,16 +143,21 @@ public class CarServiceDemoRunner implements CommandLineRunner {
                 brakesMechanicId,
                 brakesMechanicName,
                 MechanicSpecialization.BRAKES);
-        RepairOrder order = loadOrCreateDemoOrder(car, mechanic);
-        printOrderDetails(order);
-        completeDemoOrder(order, mechanic);
+        Optional<RepairOrder> existingOrder = repairOrderService.findOrder(demoOrderId);
+        if (existingOrder.isPresent()) {
+            handleExistingDemoOrder(existingOrder.get());
+        } else {
+            RepairOrder order = createDemoOrder(car, mechanic);
+            printOrderDetails(order);
+            System.out.println(restartInstruction);
+        }
         runPricingDemonstrations(car);
         runNegativeScenarios(car);
         runOptimisticLockingScenario(car);
     }
 
     private Customer ensureCustomer() {
-        Optional<Customer> existing = customerRepository.findById(customerId);
+        Optional<Customer> existing = registrationService.findCustomer(customerId);
         if (existing.isPresent()) {
             return existing.get();
         }
@@ -167,7 +168,7 @@ public class CarServiceDemoRunner implements CommandLineRunner {
     }
 
     private Car ensureCar(Customer customer) {
-        Optional<Car> existing = carRepository.findByVin(carVin);
+        Optional<Car> existing = registrationService.findCar(carVin);
         if (existing.isPresent()) {
             return existing.get();
         }
@@ -181,7 +182,7 @@ public class CarServiceDemoRunner implements CommandLineRunner {
             String id,
             String name,
             MechanicSpecialization specialization) {
-        Optional<Mechanic> existing = mechanicRepository.findById(id);
+        Optional<Mechanic> existing = registrationService.findMechanic(id);
         if (existing.isPresent()) {
             return existing.get();
         }
@@ -194,16 +195,7 @@ public class CarServiceDemoRunner implements CommandLineRunner {
         return mechanic;
     }
 
-    private RepairOrder loadOrCreateDemoOrder(Car car, Mechanic mechanic) {
-        Optional<RepairOrder> existing = repairOrderRepository.findById(demoOrderId);
-        if (existing.isPresent()) {
-            RepairOrder loadedOrder = repairOrderService.getOrder(demoOrderId);
-            System.out.println(String.format(
-                    loadedOrderFormat,
-                    demoOrderId,
-                    loadedOrder.getStatus()));
-            return loadedOrder;
-        }
+    private RepairOrder createDemoOrder(Car car, Mechanic mechanic) {
         repairOrderService.createOrder(demoOrderId, car.getVin());
         repairOrderService.addWorks(demoOrderId, List.of(createEngineWork(), createBrakesWork()));
         repairOrderService.diagnose(demoOrderId);
@@ -215,7 +207,18 @@ public class CarServiceDemoRunner implements CommandLineRunner {
         return createdOrder;
     }
 
+    private void handleExistingDemoOrder(RepairOrder order) {
+        System.out.println(String.format(loadedOrderFormat, demoOrderId, order.getStatus()));
+        printOrderDetails(order);
+        if (order.getStatus() == OrderStatus.IN_PROGRESS) {
+            completeDemoOrder(order);
+        } else if (order.getStatus() == OrderStatus.COMPLETED) {
+            printCompletion(order);
+        }
+    }
+
     private void printOrderDetails(RepairOrder order) {
+        System.out.println(String.format(orderStatusFormat, order.getStatus()));
         Mechanic mechanic = order.getAssignedMechanic();
         System.out.println(String.format(
                 mechanicFormat,
@@ -230,34 +233,13 @@ public class CarServiceDemoRunner implements CommandLineRunner {
                 .forEach(System.out::println);
     }
 
-    private void completeDemoOrder(RepairOrder order, Mechanic mechanic) {
-        if (order.getStatus() == OrderStatus.COMPLETED) {
-            printCompletion(order);
-            return;
-        }
-        if (order.getStatus() == OrderStatus.CREATED) {
-            repairOrderService.diagnose(demoOrderId);
-            order = repairOrderService.getOrder(demoOrderId);
-        }
-        if (order.getStatus() == OrderStatus.DIAGNOSED) {
-            repairOrderService.approve(demoOrderId);
-            order = repairOrderService.getOrder(demoOrderId);
-        }
-        if (order.getStatus() == OrderStatus.APPROVED) {
-            if (order.getAssignedMechanic() == null) {
-                repairOrderService.assignMechanic(demoOrderId, mechanic.getId());
-            }
-            repairOrderService.startProgress(demoOrderId);
-            order = repairOrderService.getOrder(demoOrderId);
-        }
-        if (order.getStatus() == OrderStatus.IN_PROGRESS) {
-            List<ServiceWork> works = order.getWorks();
-            IntStream.range(firstWorkIndex, works.size())
-                    .filter(index -> works.get(index).getStatus() == WorkStatus.PENDING)
-                    .forEach(index -> repairOrderService.completeWork(demoOrderId, index));
-            repairOrderService.complete(demoOrderId);
-            printCompletion(repairOrderService.getOrder(demoOrderId));
-        }
+    private void completeDemoOrder(RepairOrder order) {
+        List<ServiceWork> works = order.getWorks();
+        IntStream.range(firstWorkIndex, works.size())
+                .filter(index -> works.get(index).getStatus() == WorkStatus.PENDING)
+                .forEach(index -> repairOrderService.completeWork(demoOrderId, index));
+        repairOrderService.complete(demoOrderId);
+        printCompletion(repairOrderService.getOrder(demoOrderId));
     }
 
     private void printCompletion(RepairOrder order) {
@@ -337,6 +319,9 @@ public class CarServiceDemoRunner implements CommandLineRunner {
     }
 
     private void runNegativeScenarios(Car car) {
+        runExpectedFailure(
+                duplicateOrderLabel,
+                () -> repairOrderService.createOrder(demoOrderId, car.getVin()));
         runExpectedFailure(invalidTransitionLabel, () -> {
             ensureNegativeOrder(invalidTransitionOrderId, car);
             repairOrderService.complete(invalidTransitionOrderId);
@@ -347,14 +332,47 @@ public class CarServiceDemoRunner implements CommandLineRunner {
 
     private void runOptimisticLockingScenario(Car car) {
         ensureNegativeOrder(optimisticOrderId, car);
-        RepairOrder staleOrder = transactionTemplate.execute(status ->
-                repairOrderRepository.findById(optimisticOrderId)
-                        .orElseThrow(() -> new IllegalStateException(optimisticLockOrderMissingMessage)));
-        staleOrder.changePriority(OrderPriority.URGENT);
-        transactionTemplate.execute(status ->
-                repairOrderService.changePriority(optimisticOrderId, OrderPriority.URGENT));
+        CountDownLatch staleReadComplete = new CountDownLatch(latchInitialCount);
+        CountDownLatch firstCommitComplete = new CountDownLatch(latchInitialCount);
+        AtomicReference<RuntimeException> staleTransactionFailure = new AtomicReference<>();
+        Thread staleWriter = new Thread(() -> {
+            try {
+                transactionTemplate.execute(status -> {
+                    repairOrderService.findOrder(optimisticOrderId)
+                            .orElseThrow(() -> new IllegalStateException(optimisticLockOrderMissingMessage));
+                    staleReadComplete.countDown();
+                    await(firstCommitComplete);
+                    repairOrderService.changePriority(optimisticOrderId, OrderPriority.URGENT);
+                    return null;
+                });
+            } catch (RuntimeException exception) {
+                staleTransactionFailure.set(exception);
+            }
+        }, staleWriterThreadName);
+        staleWriter.start();
+        boolean staleReadCompleted;
         try {
-            transactionTemplate.execute(status -> repairOrderRepository.save(staleOrder));
+            staleReadCompleted = staleReadComplete.await(coordinationTimeoutSeconds, TimeUnit.SECONDS);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(latchTimeoutMessage, exception);
+        }
+        if (!staleReadCompleted) {
+            firstCommitComplete.countDown();
+            joinStaleWriter(staleWriter);
+            throw new IllegalStateException(latchTimeoutMessage);
+        }
+        try {
+            repairOrderService.changePriority(optimisticOrderId, OrderPriority.URGENT);
+        } finally {
+            firstCommitComplete.countDown();
+        }
+        joinStaleWriter(staleWriter);
+        try {
+            RuntimeException failure = staleTransactionFailure.get();
+            if (failure != null) {
+                throw failure;
+            }
             System.out.println(String.format(missingOptimisticLockFormat, optimisticLockLabel));
         } catch (ObjectOptimisticLockingFailureException exception) {
             System.out.println(String.format(
@@ -372,14 +390,38 @@ public class CarServiceDemoRunner implements CommandLineRunner {
         System.out.println(String.format(beforeCountFormat, beforeCount));
         runExpectedFailure(batchFailureLabel, () -> repairOrderService.addWorks(
                 batchOrderId,
-                Arrays.asList(createBatchWork(), null)));
+                Stream.of(createBatchWork(), null).toList()));
         int afterCount = repairOrderService.getOrder(batchOrderId).getWorks().size();
         System.out.println(String.format(afterCountFormat, afterCount));
     }
 
     private void ensureNegativeOrder(String orderId, Car car) {
-        if (repairOrderRepository.findById(orderId).isEmpty()) {
+        if (repairOrderService.findOrder(orderId).isEmpty()) {
             repairOrderService.createOrder(orderId, car.getVin());
+        }
+    }
+
+    private void await(CountDownLatch latch) {
+        try {
+            boolean released = latch.await(coordinationTimeoutSeconds, TimeUnit.SECONDS);
+            if (!released) {
+                throw new IllegalStateException(latchTimeoutMessage);
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(latchTimeoutMessage, exception);
+        }
+    }
+
+    private void joinStaleWriter(Thread staleWriter) {
+        try {
+            staleWriter.join(threadJoinTimeoutMillis);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(latchTimeoutMessage, exception);
+        }
+        if (staleWriter.isAlive()) {
+            throw new IllegalStateException(latchTimeoutMessage);
         }
     }
 

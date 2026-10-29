@@ -242,7 +242,7 @@ class DomainInvariantTest {
         order.assignMechanic(mechanic);
         order.startProgress();
         work.complete();
-        order.complete();
+        order.complete(completionPrice, completionTime);
 
         // When
         Runnable changePriority = () -> order.changePriority(OrderPriority.URGENT);
@@ -362,7 +362,7 @@ class DomainInvariantTest {
         }
         if (status == OrderStatus.COMPLETED) {
             order.completeWork(0);
-            order.complete();
+            order.complete(completionPrice, completionTime);
         }
         return order;
     }

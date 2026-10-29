@@ -9,6 +9,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "mechanics")
@@ -28,6 +29,10 @@ public class Mechanic {
 
     @Column(name = "busy", nullable = false)
     private boolean busy;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 
     protected Mechanic() {
     }
@@ -61,6 +66,10 @@ public class Mechanic {
 
     public boolean isBusy() {
         return busy;
+    }
+
+    public Long getVersion() {
+        return version;
     }
 
     public void assignToOrder() {

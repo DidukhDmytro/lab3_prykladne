@@ -18,6 +18,10 @@ public class ServiceMessages {
     private static String serviceDependenciesRequired = "Service dependencies are required.";
     private static String workListRequired = "A work list is required.";
     private static String workListMustNotBeEmpty = "A work list must not be empty.";
+    private static String serviceIdentifierRequired = "A service identifier is required.";
+    private static String serviceStatusRequired = "An order status is required.";
+    private static String servicePriorityRequired = "An order priority is required.";
+    private static String serviceMechanicRequired = "A mechanic is required.";
 
     public static String entityRequired() { return entityRequired; }
     public static String duplicateEntity() { return duplicateEntity; }
@@ -36,6 +40,10 @@ public class ServiceMessages {
     public static String serviceDependenciesRequired() { return serviceDependenciesRequired; }
     public static String workListRequired() { return workListRequired; }
     public static String workListMustNotBeEmpty() { return workListMustNotBeEmpty; }
+    public static String serviceIdentifierRequired() { return serviceIdentifierRequired; }
+    public static String serviceStatusRequired() { return serviceStatusRequired; }
+    public static String servicePriorityRequired() { return servicePriorityRequired; }
+    public static String serviceMechanicRequired() { return serviceMechanicRequired; }
 
     private ServiceMessages() {
     }

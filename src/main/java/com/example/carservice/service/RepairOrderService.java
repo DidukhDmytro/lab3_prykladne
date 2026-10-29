@@ -70,6 +70,8 @@ public class RepairOrderService {
      *         {@link InvalidArgumentException} if an id or VIN is null or the order id is blank
      */
     public RepairOrder createOrder(String orderId, String vin) {
+        requireIdentifier(orderId);
+        requireIdentifier(vin);
         if (repairOrderRepository.findById(orderId).isPresent()) {
             throw new EntityAlreadyExistsException(
                     String.format(ServiceMessages.duplicateRepairOrder(), orderId));
@@ -89,10 +91,25 @@ public class RepairOrderService {
     }
 
     /**
+     * Finds a repair order by identifier.
+     * @param orderId repair-order identifier
+     * @return the order if it exists
+     */
+    @Transactional(readOnly = true)
+    public Optional<RepairOrder> findOrder(String orderId) {
+        requireIdentifier(orderId);
+        return repairOrderRepository.findById(orderId);
+    }
+
+    /**
      * Adds work to an order and saves it.
      * @throws EntityNotFoundException if the order is missing; domain exceptions if work is null or the order cannot be changed
      */
     public RepairOrder addWork(String orderId, ServiceWork work) {
+        requireIdentifier(orderId);
+        if (work == null) {
+            throw new InvalidArgumentException(ServiceMessages.entityRequired());
+        }
         RepairOrder order = getOrThrow(orderId);
         order.addWork(work);
         return repairOrderRepository.save(order);
@@ -103,6 +120,7 @@ public class RepairOrderService {
      * @throws InvalidArgumentException if the work list is null or empty
      */
     public RepairOrder addWorks(String orderId, List<ServiceWork> works) {
+        requireIdentifier(orderId);
         if (works == null) {
             throw new InvalidArgumentException(ServiceMessages.workListRequired());
         }
@@ -120,6 +138,9 @@ public class RepairOrderService {
      * @throws EntityNotFoundException if the order is missing; domain exceptions if priority is null or the order cannot be changed
      */
     public RepairOrder changePriority(String orderId, OrderPriority priority) {
+        if (priority == null) {
+            throw new InvalidArgumentException(ServiceMessages.servicePriorityRequired());
+        }
         RepairOrder order = getOrThrow(orderId);
         order.changePriority(priority);
         return repairOrderRepository.save(order);
@@ -152,6 +173,7 @@ public class RepairOrderService {
      * @throws EntityNotFoundException if the order or mechanic is missing; domain exceptions if assignment is invalid
      */
     public RepairOrder assignMechanic(String orderId, String mechanicId) {
+        requireIdentifier(mechanicId);
         RepairOrder order = getOrThrow(orderId);
         Mechanic mechanic = mechanicRepository.findById(mechanicId)
                 .orElseThrow(() -> new EntityNotFoundException(
@@ -188,7 +210,6 @@ public class RepairOrderService {
      */
     public RepairOrder complete(String orderId) {
         RepairOrder order = getOrThrow(orderId);
-        order.complete();
         BigDecimal finalPrice = pricingPolicy.calculateFinalPrice(order);
         Instant completedAt = Instant.now(clock);
         order.complete(finalPrice, completedAt);
@@ -212,6 +233,9 @@ public class RepairOrderService {
      */
     @Transactional(readOnly = true)
     public List<RepairOrder> findByStatus(OrderStatus status) {
+        if (status == null) {
+            throw new InvalidArgumentException(ServiceMessages.serviceStatusRequired());
+        }
         return repairOrderRepository.findByStatus(status);
     }
 
@@ -245,8 +269,15 @@ public class RepairOrderService {
     }
 
     private RepairOrder getOrThrow(String orderId) {
+        requireIdentifier(orderId);
         Optional<RepairOrder> order = repairOrderRepository.findById(orderId);
         return order.orElseThrow(() -> new EntityNotFoundException(
                 String.format(ServiceMessages.repairOrderNotFound(), orderId)));
+    }
+
+    private void requireIdentifier(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            throw new InvalidArgumentException(ServiceMessages.serviceIdentifierRequired());
+        }
     }
 }
