@@ -14,7 +14,7 @@ public class InMemoryMechanicRepository implements MechanicRepository {
     @Override
     public Mechanic save(Mechanic mechanic) {
         if (mechanic == null) {
-            throw new InvalidArgumentException(ServiceMessages.repositoryMechanicRequired());
+            throw new InvalidArgumentException(ServiceMessages.repositoryMechanicRequired);
         }
         mechanics.put(mechanic.getId(), mechanic);
         return mechanic;
@@ -23,7 +23,7 @@ public class InMemoryMechanicRepository implements MechanicRepository {
     @Override
     public Optional<Mechanic> findById(String id) {
         if (id == null) {
-            throw new InvalidArgumentException(ServiceMessages.repositoryIdentifierRequired());
+            throw new InvalidArgumentException(ServiceMessages.repositoryIdentifierRequired);
         }
         return Optional.ofNullable(mechanics.get(id));
     }

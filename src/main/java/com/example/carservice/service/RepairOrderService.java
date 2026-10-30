@@ -54,7 +54,7 @@ public class RepairOrderService {
                 || pricingPolicy == null
                 || giftPolicy == null
                 || clock == null) {
-            throw new InvalidArgumentException(ServiceMessages.serviceDependenciesRequired());
+            throw new InvalidArgumentException(ServiceMessages.serviceDependenciesRequired);
         }
         this.repairOrderRepository = repairOrderRepository;
         this.carRepository = carRepository;
@@ -74,10 +74,10 @@ public class RepairOrderService {
         requireIdentifier(vin);
         if (repairOrderRepository.findById(orderId).isPresent()) {
             throw new EntityAlreadyExistsException(
-                    String.format(ServiceMessages.duplicateRepairOrder(), orderId));
+                    String.format(ServiceMessages.duplicateRepairOrder, orderId));
         }
         Car car = carRepository.findByVin(vin)
-                .orElseThrow(() -> new EntityNotFoundException(String.format(ServiceMessages.carNotFound(), vin)));
+                .orElseThrow(() -> new EntityNotFoundException(String.format(ServiceMessages.carNotFound, vin)));
         return repairOrderRepository.save(new RepairOrder(orderId, car));
     }
 
@@ -108,7 +108,7 @@ public class RepairOrderService {
     public RepairOrder addWork(String orderId, ServiceWork work) {
         requireIdentifier(orderId);
         if (work == null) {
-            throw new InvalidArgumentException(ServiceMessages.entityRequired());
+            throw new InvalidArgumentException(ServiceMessages.entityRequired);
         }
         RepairOrder order = getOrThrow(orderId);
         order.addWork(work);
@@ -122,10 +122,10 @@ public class RepairOrderService {
     public RepairOrder addWorks(String orderId, List<ServiceWork> works) {
         requireIdentifier(orderId);
         if (works == null) {
-            throw new InvalidArgumentException(ServiceMessages.workListRequired());
+            throw new InvalidArgumentException(ServiceMessages.workListRequired);
         }
         if (works.isEmpty()) {
-            throw new InvalidArgumentException(ServiceMessages.workListMustNotBeEmpty());
+            throw new InvalidArgumentException(ServiceMessages.workListMustNotBeEmpty);
         }
         RepairOrder order = getOrThrow(orderId);
         // Keep this operation inline: calling addWork through this instance bypasses the transactional proxy.
@@ -139,7 +139,7 @@ public class RepairOrderService {
      */
     public RepairOrder changePriority(String orderId, OrderPriority priority) {
         if (priority == null) {
-            throw new InvalidArgumentException(ServiceMessages.servicePriorityRequired());
+            throw new InvalidArgumentException(ServiceMessages.servicePriorityRequired);
         }
         RepairOrder order = getOrThrow(orderId);
         order.changePriority(priority);
@@ -177,7 +177,7 @@ public class RepairOrderService {
         RepairOrder order = getOrThrow(orderId);
         Mechanic mechanic = mechanicRepository.findById(mechanicId)
                 .orElseThrow(() -> new EntityNotFoundException(
-                        String.format(ServiceMessages.mechanicNotFound(), mechanicId)));
+                        String.format(ServiceMessages.mechanicNotFound, mechanicId)));
         order.assignMechanic(mechanic);
         return repairOrderRepository.save(order);
     }
@@ -234,7 +234,7 @@ public class RepairOrderService {
     @Transactional(readOnly = true)
     public List<RepairOrder> findByStatus(OrderStatus status) {
         if (status == null) {
-            throw new InvalidArgumentException(ServiceMessages.serviceStatusRequired());
+            throw new InvalidArgumentException(ServiceMessages.serviceStatusRequired);
         }
         return repairOrderRepository.findByStatus(status);
     }
@@ -272,12 +272,12 @@ public class RepairOrderService {
         requireIdentifier(orderId);
         Optional<RepairOrder> order = repairOrderRepository.findById(orderId);
         return order.orElseThrow(() -> new EntityNotFoundException(
-                String.format(ServiceMessages.repairOrderNotFound(), orderId)));
+                String.format(ServiceMessages.repairOrderNotFound, orderId)));
     }
 
     private void requireIdentifier(String identifier) {
         if (identifier == null || identifier.isBlank()) {
-            throw new InvalidArgumentException(ServiceMessages.serviceIdentifierRequired());
+            throw new InvalidArgumentException(ServiceMessages.serviceIdentifierRequired);
         }
     }
 }

@@ -300,7 +300,7 @@ class DomainInvariantTest {
                 assertThrows(InvalidArgumentException.class, completeWork::run);
 
         // Then
-        assertEquals(DomainMessages.workIndexOutOfRange(), exception.getMessage());
+        assertEquals(DomainMessages.workIndexOutOfRange, exception.getMessage());
     }
 
     @Test

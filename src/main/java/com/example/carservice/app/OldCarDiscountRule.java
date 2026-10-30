@@ -17,10 +17,10 @@ public class OldCarDiscountRule implements PricingRule {
 
     public OldCarDiscountRule(int currentYear, int minimumAge, BigDecimal discountPercent) {
         if (currentYear <= zeroYear) {
-            throw new PricingException(PricingMessages.oldCarCurrentYearRequired());
+            throw new PricingException(PricingMessages.oldCarCurrentYearRequired);
         }
         if (minimumAge < zeroAge) {
-            throw new PricingException(PricingMessages.oldCarAgeLimitInvalid());
+            throw new PricingException(PricingMessages.oldCarAgeLimitInvalid);
         }
         this.currentYear = currentYear;
         this.minimumAge = minimumAge;
@@ -35,7 +35,7 @@ public class OldCarDiscountRule implements PricingRule {
     @Override
     public BigDecimal apply(PricingContext context, BigDecimal currentTotal) {
         if (context == null || currentTotal == null) {
-            throw new PricingException(PricingMessages.pricingContextRequired());
+            throw new PricingException(PricingMessages.pricingContextRequired);
         }
         if (currentYear - context.getCarYear() > minimumAge) {
             return percentageDiscountRule.apply(context, currentTotal);

@@ -72,7 +72,7 @@ class RegistrationServiceTest {
 
         // Then
         assertEquals(
-                String.format(ServiceMessages.duplicateEntity(), customerId),
+                String.format(ServiceMessages.duplicateEntity, customerId),
                 exception.getMessage());
         verify(customerRepository, never()).save(any());
     }
@@ -88,7 +88,7 @@ class RegistrationServiceTest {
                 assertThrows(EntityNotFoundException.class, () -> service.registerCar(car));
 
         // Then
-        assertEquals(String.format(ServiceMessages.customerNotFound(), customerId), exception.getMessage());
+        assertEquals(String.format(ServiceMessages.customerNotFound, customerId), exception.getMessage());
         verify(carRepository, never()).save(any());
     }
 
@@ -104,7 +104,7 @@ class RegistrationServiceTest {
                 assertThrows(EntityAlreadyExistsException.class, () -> service.registerCar(car));
 
         // Then
-        assertEquals(String.format(ServiceMessages.duplicateVin(), vin), exception.getMessage());
+        assertEquals(String.format(ServiceMessages.duplicateVin, vin), exception.getMessage());
         verify(carRepository, never()).save(any());
     }
 
@@ -189,7 +189,7 @@ class RegistrationServiceTest {
                 InvalidArgumentException.class,
                 () -> performLookupWithNullIdentifier(lookup));
 
-        assertEquals(ServiceMessages.serviceIdentifierRequired(), exception.getMessage());
+        assertEquals(ServiceMessages.serviceIdentifierRequired, exception.getMessage());
         verifyNoInteractions(customerRepository, carRepository, mechanicRepository);
     }
 
@@ -200,7 +200,7 @@ class RegistrationServiceTest {
                 InvalidArgumentException.class,
                 () -> service.registerMechanic(null));
 
-        assertEquals(ServiceMessages.serviceMechanicRequired(), exception.getMessage());
+        assertEquals(ServiceMessages.serviceMechanicRequired, exception.getMessage());
         verifyNoInteractions(customerRepository, carRepository, mechanicRepository);
     }
 

@@ -15,10 +15,10 @@ public class PercentageDiscountRule implements PricingRule {
 
     public PercentageDiscountRule(BigDecimal percent) {
         if (percent == null) {
-            throw new PricingException(PricingMessages.percentageRequired());
+            throw new PricingException(PricingMessages.percentageRequired);
         }
         if (percent.compareTo(zeroPercent) < 0 || percent.compareTo(maximumPercent) > 0) {
-            throw new PricingException(PricingMessages.percentageOutOfRange());
+            throw new PricingException(PricingMessages.percentageOutOfRange);
         }
         this.percent = percent;
     }
@@ -31,7 +31,7 @@ public class PercentageDiscountRule implements PricingRule {
     @Override
     public BigDecimal apply(PricingContext context, BigDecimal currentTotal) {
         if (context == null || currentTotal == null) {
-            throw new PricingException(PricingMessages.pricingContextRequired());
+            throw new PricingException(PricingMessages.pricingContextRequired);
         }
         return currentTotal.multiply(percentageDivisor.subtract(percent)).divide(percentageDivisor);
     }

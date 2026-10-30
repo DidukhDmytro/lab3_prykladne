@@ -110,7 +110,7 @@ class PriceCalculatorTest {
                 () -> new PriceCalculator(List.of(), minimumPrice));
 
         // Then
-        assertEquals(PricingMessages.negativeMinimumPrice(), exception.getMessage());
+        assertEquals(PricingMessages.negativeMinimumPrice, exception.getMessage());
     }
 
     @ParameterizedTest(name = "parts {0}, labor {1}, then parts {2}, labor {3} gives {4}")
@@ -159,7 +159,7 @@ class PriceCalculatorTest {
         order.changePriority(OrderPriority.URGENT);
         PriceCalculator calculator =
                 new PriceCalculator(
-                        List.of(new UrgentSurchargeRule(AppConstants.urgentLaborSurchargeFactor())),
+                        List.of(new UrgentSurchargeRule(AppConstants.urgentLaborSurchargeFactor)),
                         BigDecimal.ZERO);
 
         // When

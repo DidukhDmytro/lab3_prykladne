@@ -15,11 +15,11 @@ public class InMemoryCarRepository implements CarRepository {
     @Override
     public Car save(Car car) {
         if (car == null) {
-            throw new InvalidArgumentException(ServiceMessages.repositoryCarRequired());
+            throw new InvalidArgumentException(ServiceMessages.repositoryCarRequired);
         }
         if (carsByVin.containsKey(car.getVin())) {
             throw new EntityAlreadyExistsException(
-                    String.format(ServiceMessages.duplicateVin(), car.getVin()));
+                    String.format(ServiceMessages.duplicateVin, car.getVin()));
         }
         carsByVin.put(car.getVin(), car);
         return car;
@@ -28,7 +28,7 @@ public class InMemoryCarRepository implements CarRepository {
     @Override
     public Optional<Car> findByVin(String vin) {
         if (vin == null) {
-            throw new InvalidArgumentException(ServiceMessages.repositoryIdentifierRequired());
+            throw new InvalidArgumentException(ServiceMessages.repositoryIdentifierRequired);
         }
         return Optional.ofNullable(carsByVin.get(vin));
     }

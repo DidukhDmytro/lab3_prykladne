@@ -27,7 +27,7 @@ public class PriceCalculator implements PricingPolicy {
 
     private PricingContext toPricingContext(RepairOrder order) {
         if (order == null) {
-            throw new PricingException(PricingMessages.pricingOrderRequired());
+            throw new PricingException(PricingMessages.pricingOrderRequired);
         }
         return new PricingContext(
                 order.calculateLaborTotal(),

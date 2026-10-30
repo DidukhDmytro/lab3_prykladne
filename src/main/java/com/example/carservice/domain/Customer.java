@@ -25,13 +25,13 @@ public class Customer {
 
     public Customer(String id, String fullName, String phoneNumber) {
         if (id == null || id.isBlank()) {
-            throw new InvalidArgumentException(DomainMessages.invalidCustomerId());
+            throw new InvalidArgumentException(DomainMessages.invalidCustomerId);
         }
         if (fullName == null || fullName.isBlank()) {
-            throw new InvalidArgumentException(DomainMessages.invalidCustomerName());
+            throw new InvalidArgumentException(DomainMessages.invalidCustomerName);
         }
         if (phoneNumber == null || phoneNumber.isBlank()) {
-            throw new InvalidArgumentException(DomainMessages.invalidPhoneNumber());
+            throw new InvalidArgumentException(DomainMessages.invalidPhoneNumber);
         }
         this.id = id;
         this.fullName = fullName;

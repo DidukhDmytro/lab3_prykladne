@@ -18,7 +18,7 @@ public class PricingConfiguration {
     @Bean
     public PricingPolicy pricingPolicy() {
         return new PriceCalculator(
-                List.of(new UrgentSurchargeRule(AppConstants.urgentLaborSurchargeFactor())),
-                AppConstants.minimumPrice());
+                List.of(new UrgentSurchargeRule(AppConstants.urgentLaborSurchargeFactor)),
+                AppConstants.minimumPrice);
     }
 }

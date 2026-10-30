@@ -260,12 +260,12 @@ public class CarServiceDemoRunner implements CommandLineRunner {
                 List.of(
                         new FixedDiscountRule(fixedDiscountAmount),
                         new PercentageDiscountRule(discountPercent)),
-                AppConstants.minimumPrice());
+                AppConstants.minimumPrice);
         PriceCalculator percentThenFixedCalculator = new PriceCalculator(
                 List.of(
                         new PercentageDiscountRule(discountPercent),
                         new FixedDiscountRule(fixedDiscountAmount)),
-                AppConstants.minimumPrice());
+                AppConstants.minimumPrice);
         System.out.println(String.format(
                 priceFormat,
                 fixedThenPercentLabel,
@@ -280,7 +280,7 @@ public class CarServiceDemoRunner implements CommandLineRunner {
                 List.of(
                         new PercentageDiscountRule(discountPercent),
                         new DemonstrationSurchargeRule(customSurchargeAmount)),
-                AppConstants.minimumPrice());
+                AppConstants.minimumPrice);
         System.out.println(String.format(
                 priceFormat,
                 customSurchargeLabel,
@@ -292,7 +292,7 @@ public class CarServiceDemoRunner implements CommandLineRunner {
                         currentYear,
                         oldCarAgeLimit,
                         oldCarDiscountPercent)),
-                AppConstants.minimumPrice());
+                AppConstants.minimumPrice);
         System.out.println(String.format(
                 priceFormat,
                 oldCarPricingLabel,

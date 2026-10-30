@@ -37,16 +37,16 @@ public class PricingRuleEngine {
 
     public PricingRuleEngine(List<PricingRule> rules, BigDecimal minimumPrice) {
         if (rules == null) {
-            throw new PricingException(PricingMessages.pricingRulesRequired());
+            throw new PricingException(PricingMessages.pricingRulesRequired);
         }
         if (minimumPrice == null) {
-            throw new PricingException(PricingMessages.minimumPriceRequired());
+            throw new PricingException(PricingMessages.minimumPriceRequired);
         }
         if (minimumPrice.compareTo(zeroPrice) < 0) {
-            throw new PricingException(PricingMessages.negativeMinimumPrice());
+            throw new PricingException(PricingMessages.negativeMinimumPrice);
         }
         if (rules.stream().anyMatch(Objects::isNull)) {
-            throw new PricingException(PricingMessages.pricingRuleRequired());
+            throw new PricingException(PricingMessages.pricingRuleRequired);
         }
         this.rules = rules.stream()
                 .sorted(Comparator.comparingInt(PricingRule::getPriority))
@@ -67,7 +67,7 @@ public class PricingRuleEngine {
                 .<Function<BigDecimal, BigDecimal>>map(rule -> currentTotal -> {
                     BigDecimal result = rule.apply(context, currentTotal);
                     if (result == null) {
-                        throw new PricingException(PricingMessages.pricingRuleResultRequired());
+                        throw new PricingException(PricingMessages.pricingRuleResultRequired);
                     }
                     return result;
                 })
@@ -78,7 +78,7 @@ public class PricingRuleEngine {
 
     private void validateContext(PricingContext context) {
         if (context == null) {
-            throw new PricingException(PricingMessages.pricingContextRequired());
+            throw new PricingException(PricingMessages.pricingContextRequired);
         }
     }
 }

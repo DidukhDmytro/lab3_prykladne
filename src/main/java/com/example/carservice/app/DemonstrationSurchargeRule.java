@@ -11,7 +11,7 @@ public class DemonstrationSurchargeRule implements PricingRule {
 
     public DemonstrationSurchargeRule(BigDecimal amount) {
         if (amount == null) {
-            throw new PricingException(PricingMessages.demonstrationSurchargeAmountRequired());
+            throw new PricingException(PricingMessages.demonstrationSurchargeAmountRequired);
         }
         this.amount = amount;
     }
@@ -24,7 +24,7 @@ public class DemonstrationSurchargeRule implements PricingRule {
     @Override
     public BigDecimal apply(PricingContext context, BigDecimal currentTotal) {
         if (context == null || currentTotal == null) {
-            throw new PricingException(PricingMessages.pricingContextRequired());
+            throw new PricingException(PricingMessages.pricingContextRequired);
         }
         return currentTotal.add(amount);
     }

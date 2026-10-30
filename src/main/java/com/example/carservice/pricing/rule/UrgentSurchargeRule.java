@@ -12,10 +12,10 @@ public class UrgentSurchargeRule implements PricingRule {
 
     public UrgentSurchargeRule(BigDecimal laborSurchargeFactor) {
         if (laborSurchargeFactor == null) {
-            throw new PricingException(PricingMessages.urgentSurchargeFactorRequired());
+            throw new PricingException(PricingMessages.urgentSurchargeFactorRequired);
         }
         if (laborSurchargeFactor.compareTo(zeroPrice) < 0) {
-            throw new PricingException(PricingMessages.invalidUrgentSurchargeFactor());
+            throw new PricingException(PricingMessages.invalidUrgentSurchargeFactor);
         }
         this.laborSurchargeFactor = laborSurchargeFactor;
     }
@@ -28,7 +28,7 @@ public class UrgentSurchargeRule implements PricingRule {
     @Override
     public BigDecimal apply(PricingContext context, BigDecimal currentTotal) {
         if (context == null || currentTotal == null) {
-            throw new PricingException(PricingMessages.pricingContextRequired());
+            throw new PricingException(PricingMessages.pricingContextRequired);
         }
         if (context.isUrgent()) {
             return currentTotal.add(context.getLaborTotal().multiply(laborSurchargeFactor));

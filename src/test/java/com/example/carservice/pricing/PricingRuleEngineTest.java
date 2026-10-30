@@ -57,7 +57,7 @@ class PricingRuleEngineTest {
         // Then
         PricingException exception =
                 assertThrows(PricingException.class, calculate::run);
-        assertEquals(PricingMessages.pricingContextRequired(), exception.getMessage());
+        assertEquals(PricingMessages.pricingContextRequired, exception.getMessage());
     }
 
     @Test
@@ -72,7 +72,7 @@ class PricingRuleEngineTest {
         // Then
         PricingException exception =
                 assertThrows(PricingException.class, createEngine::run);
-        assertEquals(PricingMessages.pricingRulesRequired(), exception.getMessage());
+        assertEquals(PricingMessages.pricingRulesRequired, exception.getMessage());
     }
 
     @Test
@@ -88,7 +88,7 @@ class PricingRuleEngineTest {
         // Then
         PricingException exception =
                 assertThrows(PricingException.class, createEngine::run);
-        assertEquals(PricingMessages.pricingRuleRequired(), exception.getMessage());
+        assertEquals(PricingMessages.pricingRuleRequired, exception.getMessage());
     }
 
     @Test
@@ -103,7 +103,7 @@ class PricingRuleEngineTest {
         // Then
         PricingException exception =
                 assertThrows(PricingException.class, createEngine::run);
-        assertEquals(PricingMessages.negativeMinimumPrice(), exception.getMessage());
+        assertEquals(PricingMessages.negativeMinimumPrice, exception.getMessage());
     }
 
     @Test
@@ -118,7 +118,7 @@ class PricingRuleEngineTest {
         // Then
         PricingException exception =
                 assertThrows(PricingException.class, createEngine::run);
-        assertEquals(PricingMessages.minimumPriceRequired(), exception.getMessage());
+        assertEquals(PricingMessages.minimumPriceRequired, exception.getMessage());
     }
 
     @Test
@@ -134,7 +134,7 @@ class PricingRuleEngineTest {
         // Then
         PricingException exception =
                 assertThrows(PricingException.class, calculate::run);
-        assertEquals(PricingMessages.pricingRuleResultRequired(), exception.getMessage());
+        assertEquals(PricingMessages.pricingRuleResultRequired, exception.getMessage());
     }
 
     @Test
@@ -146,7 +146,7 @@ class PricingRuleEngineTest {
 
         // Then
         PricingException exception = assertThrows(PricingException.class, createContext::run);
-        assertEquals(PricingMessages.laborTotalRequired(), exception.getMessage());
+        assertEquals(PricingMessages.laborTotalRequired, exception.getMessage());
     }
 
     @Test
@@ -158,7 +158,7 @@ class PricingRuleEngineTest {
 
         // Then
         PricingException exception = assertThrows(PricingException.class, createContext::run);
-        assertEquals(PricingMessages.partsTotalRequired(), exception.getMessage());
+        assertEquals(PricingMessages.partsTotalRequired, exception.getMessage());
     }
 
     @Test
@@ -170,7 +170,7 @@ class PricingRuleEngineTest {
 
         // Then
         PricingException exception = assertThrows(PricingException.class, createContext::run);
-        assertEquals(PricingMessages.negativeLaborTotal(), exception.getMessage());
+        assertEquals(PricingMessages.negativeLaborTotal, exception.getMessage());
     }
 
     @Test
@@ -182,7 +182,7 @@ class PricingRuleEngineTest {
 
         // Then
         PricingException exception = assertThrows(PricingException.class, createContext::run);
-        assertEquals(PricingMessages.negativePartsTotal(), exception.getMessage());
+        assertEquals(PricingMessages.negativePartsTotal, exception.getMessage());
     }
 
     @Test

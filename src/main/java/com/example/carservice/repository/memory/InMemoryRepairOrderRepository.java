@@ -18,7 +18,7 @@ public class InMemoryRepairOrderRepository implements RepairOrderRepository {
     @Override
     public RepairOrder save(RepairOrder order) {
         if (order == null) {
-            throw new InvalidArgumentException(ServiceMessages.repositoryOrderRequired());
+            throw new InvalidArgumentException(ServiceMessages.repositoryOrderRequired);
         }
         orders.put(order.getId(), order);
         return order;
@@ -27,7 +27,7 @@ public class InMemoryRepairOrderRepository implements RepairOrderRepository {
     @Override
     public Optional<RepairOrder> findById(String id) {
         if (id == null) {
-            throw new InvalidArgumentException(ServiceMessages.repositoryIdentifierRequired());
+            throw new InvalidArgumentException(ServiceMessages.repositoryIdentifierRequired);
         }
         return Optional.ofNullable(orders.get(id));
     }
@@ -35,7 +35,7 @@ public class InMemoryRepairOrderRepository implements RepairOrderRepository {
     @Override
     public List<RepairOrder> findByStatus(OrderStatus status) {
         if (status == null) {
-            throw new InvalidArgumentException(ServiceMessages.repositoryStatusRequired());
+            throw new InvalidArgumentException(ServiceMessages.repositoryStatusRequired);
         }
         return Collections.unmodifiableList(orders.values().stream()
                 .filter(order -> order.getStatus() == status)

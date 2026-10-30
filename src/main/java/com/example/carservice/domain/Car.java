@@ -35,10 +35,10 @@ public class Car {
 
     public Car(String vin, String make, String model, int year, Customer owner) {
         if (vin == null || vin.isBlank()) {
-            throw new InvalidArgumentException(DomainMessages.invalidVin());
+            throw new InvalidArgumentException(DomainMessages.invalidVin);
         }
         if (owner == null) {
-            throw new InvalidArgumentException(DomainMessages.ownerRequired());
+            throw new InvalidArgumentException(DomainMessages.ownerRequired);
         }
         this.vin = vin;
         this.make = make;

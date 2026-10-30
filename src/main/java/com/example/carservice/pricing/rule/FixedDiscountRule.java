@@ -13,10 +13,10 @@ public class FixedDiscountRule implements PricingRule {
 
     public FixedDiscountRule(BigDecimal amount) {
         if (amount == null) {
-            throw new PricingException(PricingMessages.fixedDiscountRequired());
+            throw new PricingException(PricingMessages.fixedDiscountRequired);
         }
         if (amount.compareTo(zeroPrice) < 0) {
-            throw new PricingException(PricingMessages.negativeFixedDiscount());
+            throw new PricingException(PricingMessages.negativeFixedDiscount);
         }
         this.amount = amount;
     }
@@ -29,7 +29,7 @@ public class FixedDiscountRule implements PricingRule {
     @Override
     public BigDecimal apply(PricingContext context, BigDecimal currentTotal) {
         if (context == null || currentTotal == null) {
-            throw new PricingException(PricingMessages.pricingContextRequired());
+            throw new PricingException(PricingMessages.pricingContextRequired);
         }
         return currentTotal.subtract(amount).max(zeroPrice);
     }

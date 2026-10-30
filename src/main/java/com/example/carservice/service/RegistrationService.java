@@ -32,7 +32,7 @@ public class RegistrationService {
             CarRepository carRepository,
             MechanicRepository mechanicRepository) {
         if (customerRepository == null || carRepository == null || mechanicRepository == null) {
-            throw new InvalidArgumentException(ServiceMessages.serviceDependenciesRequired());
+            throw new InvalidArgumentException(ServiceMessages.serviceDependenciesRequired);
         }
         this.customerRepository = customerRepository;
         this.carRepository = carRepository;
@@ -78,11 +78,11 @@ public class RegistrationService {
      */
     public Customer registerCustomer(Customer customer) {
         if (customer == null) {
-            throw new InvalidArgumentException(ServiceMessages.entityRequired());
+            throw new InvalidArgumentException(ServiceMessages.entityRequired);
         }
         if (customerRepository.findById(customer.getId()).isPresent()) {
             throw new EntityAlreadyExistsException(
-                    String.format(ServiceMessages.duplicateEntity(), customer.getId()));
+                    String.format(ServiceMessages.duplicateEntity, customer.getId()));
         }
         return customerRepository.save(customer);
     }
@@ -93,15 +93,15 @@ public class RegistrationService {
      */
     public Car registerCar(Car car) {
         if (car == null) {
-            throw new InvalidArgumentException(ServiceMessages.repositoryCarRequired());
+            throw new InvalidArgumentException(ServiceMessages.repositoryCarRequired);
         }
         String customerId = car.getOwner().getId();
         customerRepository.findById(customerId)
                 .orElseThrow(() -> new EntityNotFoundException(
-                        String.format(ServiceMessages.customerNotFound(), customerId)));
+                        String.format(ServiceMessages.customerNotFound, customerId)));
         if (carRepository.findByVin(car.getVin()).isPresent()) {
             throw new EntityAlreadyExistsException(
-                    String.format(ServiceMessages.duplicateVin(), car.getVin()));
+                    String.format(ServiceMessages.duplicateVin, car.getVin()));
         }
         return carRepository.save(car);
     }
@@ -112,14 +112,14 @@ public class RegistrationService {
      */
     public Mechanic registerMechanic(Mechanic mechanic) {
         if (mechanic == null) {
-            throw new InvalidArgumentException(ServiceMessages.serviceMechanicRequired());
+            throw new InvalidArgumentException(ServiceMessages.serviceMechanicRequired);
         }
         return mechanicRepository.save(mechanic);
     }
 
     private void requireIdentifier(String identifier) {
         if (identifier == null || identifier.isBlank()) {
-            throw new InvalidArgumentException(ServiceMessages.serviceIdentifierRequired());
+            throw new InvalidArgumentException(ServiceMessages.serviceIdentifierRequired);
         }
     }
 }

@@ -46,16 +46,16 @@ public class ServiceWork {
             BigDecimal laborCost,
             MechanicSpecialization requiredSpecialization) {
         if (description == null || description.isBlank()) {
-            throw new InvalidArgumentException(DomainMessages.invalidServiceWorkDescription());
+            throw new InvalidArgumentException(DomainMessages.invalidServiceWorkDescription);
         }
         if (partsCost == null || laborCost == null) {
-            throw new InvalidArgumentException(DomainMessages.costsRequired());
+            throw new InvalidArgumentException(DomainMessages.costsRequired);
         }
         if (partsCost.compareTo(BigDecimal.ZERO) < 0 || laborCost.compareTo(BigDecimal.ZERO) < 0) {
-            throw new InvalidArgumentException(DomainMessages.costsMustBeNonNegative());
+            throw new InvalidArgumentException(DomainMessages.costsMustBeNonNegative);
         }
         if (requiredSpecialization == null) {
-            throw new InvalidArgumentException(DomainMessages.specializationRequired());
+            throw new InvalidArgumentException(DomainMessages.specializationRequired);
         }
         this.description = description;
         this.partsCost = partsCost;
@@ -86,7 +86,7 @@ public class ServiceWork {
 
     public void complete() {
         if (status == WorkStatus.COMPLETED) {
-            throw new InvalidStateTransitionException(DomainMessages.workAlreadyCompleted());
+            throw new InvalidStateTransitionException(DomainMessages.workAlreadyCompleted);
         }
         status = WorkStatus.COMPLETED;
     }

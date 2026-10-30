@@ -39,8 +39,8 @@ class PostgresIntegrationTestConfiguration {
 
         AdjustablePricingPolicy() {
             delegate = new PriceCalculator(
-                    List.of(new UrgentSurchargeRule(AppConstants.urgentLaborSurchargeFactor())),
-                    AppConstants.minimumPrice());
+                    List.of(new UrgentSurchargeRule(AppConstants.urgentLaborSurchargeFactor)),
+                    AppConstants.minimumPrice);
         }
 
         void setFailCalculation(boolean failCalculation) {

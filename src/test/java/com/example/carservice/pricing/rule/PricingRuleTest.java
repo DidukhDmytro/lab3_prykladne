@@ -109,7 +109,7 @@ class PricingRuleTest {
         PriceCalculator calculator = new PriceCalculator(
                 List.of(
                         new PercentageDiscountRule(new BigDecimal("10")),
-                        new UrgentSurchargeRule(AppConstants.urgentLaborSurchargeFactor()),
+                        new UrgentSurchargeRule(AppConstants.urgentLaborSurchargeFactor),
                         new FixedDiscountRule(new BigDecimal("5"))),
                 BigDecimal.ZERO);
 
@@ -126,7 +126,7 @@ class PricingRuleTest {
         // Given
         BigDecimal base = order.calculateBaseTotal();
         BigDecimal surcharge = order.calculateLaborTotal()
-                .multiply(AppConstants.urgentLaborSurchargeFactor());
+                .multiply(AppConstants.urgentLaborSurchargeFactor);
         BigDecimal percent = new BigDecimal("10");
         order.changePriority(OrderPriority.URGENT);
 
@@ -156,7 +156,7 @@ class PricingRuleTest {
                 () -> new UrgentSurchargeRule(nullFactor));
 
         // Then
-        assertEquals(PricingMessages.urgentSurchargeFactorRequired(), exception.getMessage());
+        assertEquals(PricingMessages.urgentSurchargeFactorRequired, exception.getMessage());
     }
 
     @Test
@@ -171,7 +171,7 @@ class PricingRuleTest {
                 () -> new UrgentSurchargeRule(negativeFactor));
 
         // Then
-        assertEquals(PricingMessages.invalidUrgentSurchargeFactor(), exception.getMessage());
+        assertEquals(PricingMessages.invalidUrgentSurchargeFactor, exception.getMessage());
     }
 
     @ParameterizedTest
@@ -187,7 +187,7 @@ class PricingRuleTest {
                 assertThrows(PricingException.class, constructRule::run);
 
         // Then
-        assertEquals(PricingMessages.oldCarCurrentYearRequired(), exception.getMessage());
+        assertEquals(PricingMessages.oldCarCurrentYearRequired, exception.getMessage());
     }
 
     @Test
@@ -202,7 +202,7 @@ class PricingRuleTest {
                 assertThrows(PricingException.class, constructRule::run);
 
         // Then
-        assertEquals(PricingMessages.oldCarAgeLimitInvalid(), exception.getMessage());
+        assertEquals(PricingMessages.oldCarAgeLimitInvalid, exception.getMessage());
     }
 
     @ParameterizedTest(name = "year {0} produces {2} for a {1}-year-old car")

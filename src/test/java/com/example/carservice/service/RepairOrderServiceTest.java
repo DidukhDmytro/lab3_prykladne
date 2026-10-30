@@ -297,7 +297,7 @@ class RepairOrderServiceTest {
                 () -> performWithNullOrderIdentifier(operation));
 
         // Then
-        assertEquals(ServiceMessages.serviceIdentifierRequired(), exception.getMessage());
+        assertEquals(ServiceMessages.serviceIdentifierRequired, exception.getMessage());
         verifyNoInteractions(repairOrderRepository, carRepository, mechanicRepository);
     }
 
@@ -308,7 +308,7 @@ class RepairOrderServiceTest {
                 InvalidArgumentException.class,
                 () -> service.createOrder(orderId, null));
 
-        assertEquals(ServiceMessages.serviceIdentifierRequired(), exception.getMessage());
+        assertEquals(ServiceMessages.serviceIdentifierRequired, exception.getMessage());
         verifyNoInteractions(repairOrderRepository, carRepository, mechanicRepository);
     }
 
@@ -319,7 +319,7 @@ class RepairOrderServiceTest {
                 InvalidArgumentException.class,
                 () -> service.assignMechanic(orderId, null));
 
-        assertEquals(ServiceMessages.serviceIdentifierRequired(), exception.getMessage());
+        assertEquals(ServiceMessages.serviceIdentifierRequired, exception.getMessage());
         verifyNoInteractions(repairOrderRepository, carRepository, mechanicRepository);
     }
 
@@ -330,7 +330,7 @@ class RepairOrderServiceTest {
                 InvalidArgumentException.class,
                 () -> service.changePriority(orderId, null));
 
-        assertEquals(ServiceMessages.servicePriorityRequired(), exception.getMessage());
+        assertEquals(ServiceMessages.servicePriorityRequired, exception.getMessage());
         verifyNoInteractions(repairOrderRepository, carRepository, mechanicRepository);
     }
 
@@ -341,7 +341,7 @@ class RepairOrderServiceTest {
                 InvalidArgumentException.class,
                 () -> service.findByStatus(null));
 
-        assertEquals(ServiceMessages.serviceStatusRequired(), exception.getMessage());
+        assertEquals(ServiceMessages.serviceStatusRequired, exception.getMessage());
         verifyNoInteractions(repairOrderRepository, carRepository, mechanicRepository);
     }
 
@@ -352,7 +352,7 @@ class RepairOrderServiceTest {
                 InvalidArgumentException.class,
                 () -> service.addWork(orderId, null));
 
-        assertEquals(ServiceMessages.entityRequired(), exception.getMessage());
+        assertEquals(ServiceMessages.entityRequired, exception.getMessage());
         verifyNoInteractions(repairOrderRepository, carRepository, mechanicRepository);
     }
 
@@ -369,7 +369,7 @@ class RepairOrderServiceTest {
 
         // Then
         assertEquals(
-                String.format(ServiceMessages.duplicateRepairOrder(), orderId),
+                String.format(ServiceMessages.duplicateRepairOrder, orderId),
                 exception.getMessage());
         verify(repairOrderRepository, never()).save(any());
     }
@@ -404,7 +404,7 @@ class RepairOrderServiceTest {
                 assertThrows(EntityNotFoundException.class, createOrder::run);
 
         // Then
-        assertEquals(String.format(ServiceMessages.carNotFound(), vin), exception.getMessage());
+        assertEquals(String.format(ServiceMessages.carNotFound, vin), exception.getMessage());
         verify(repairOrderRepository, never()).save(any());
     }
 

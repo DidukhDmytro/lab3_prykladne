@@ -17,7 +17,7 @@ public class InMemoryCustomerRepository implements CustomerRepository {
     @Override
     public Customer save(Customer customer) {
         if (customer == null) {
-            throw new InvalidArgumentException(ServiceMessages.repositoryCustomerRequired());
+            throw new InvalidArgumentException(ServiceMessages.repositoryCustomerRequired);
         }
         customers.put(customer.getId(), customer);
         return customer;
@@ -26,7 +26,7 @@ public class InMemoryCustomerRepository implements CustomerRepository {
     @Override
     public Optional<Customer> findById(String id) {
         if (id == null) {
-            throw new InvalidArgumentException(ServiceMessages.repositoryIdentifierRequired());
+            throw new InvalidArgumentException(ServiceMessages.repositoryIdentifierRequired);
         }
         return Optional.ofNullable(customers.get(id));
     }

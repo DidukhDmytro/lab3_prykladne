@@ -19,16 +19,16 @@ public class PricingContext {
             boolean urgent,
             int carYear) {
         if (laborTotal == null) {
-            throw new PricingException(PricingMessages.laborTotalRequired());
+            throw new PricingException(PricingMessages.laborTotalRequired);
         }
         if (laborTotal.compareTo(zeroTotal) < 0) {
-            throw new PricingException(PricingMessages.negativeLaborTotal());
+            throw new PricingException(PricingMessages.negativeLaborTotal);
         }
         if (partsTotal == null) {
-            throw new PricingException(PricingMessages.partsTotalRequired());
+            throw new PricingException(PricingMessages.partsTotalRequired);
         }
         if (partsTotal.compareTo(zeroTotal) < 0) {
-            throw new PricingException(PricingMessages.negativePartsTotal());
+            throw new PricingException(PricingMessages.negativePartsTotal);
         }
         this.laborTotal = laborTotal;
         this.partsTotal = partsTotal;

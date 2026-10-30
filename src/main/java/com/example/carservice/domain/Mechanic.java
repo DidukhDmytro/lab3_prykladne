@@ -39,13 +39,13 @@ public class Mechanic {
 
     public Mechanic(String id, String fullName, MechanicSpecialization specialization) {
         if (id == null || id.isBlank()) {
-            throw new InvalidArgumentException(DomainMessages.invalidMechanicId());
+            throw new InvalidArgumentException(DomainMessages.invalidMechanicId);
         }
         if (fullName == null || fullName.isBlank()) {
-            throw new InvalidArgumentException(DomainMessages.invalidMechanicName());
+            throw new InvalidArgumentException(DomainMessages.invalidMechanicName);
         }
         if (specialization == null) {
-            throw new InvalidArgumentException(DomainMessages.specializationRequired());
+            throw new InvalidArgumentException(DomainMessages.specializationRequired);
         }
         this.id = id;
         this.fullName = fullName;
