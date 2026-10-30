@@ -204,12 +204,13 @@ public class RepairOrderService {
     }
 
     /**
-     * Completes an order and saves it.
+     * Validates an order, calculates its final price, completes it, and saves it.
      * @throws EntityNotFoundException if the order is missing;
      *         com.example.carservice.exception.InvalidStateTransitionException if work is unfinished or the state is invalid
      */
     public RepairOrder complete(String orderId) {
         RepairOrder order = getOrThrow(orderId);
+        order.ensureCanComplete();
         BigDecimal finalPrice = pricingPolicy.calculateFinalPrice(order);
         Instant completedAt = Instant.now(clock);
         order.complete(finalPrice, completedAt);

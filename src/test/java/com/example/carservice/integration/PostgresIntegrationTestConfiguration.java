@@ -36,6 +36,7 @@ class PostgresIntegrationTestConfiguration {
     static class AdjustablePricingPolicy implements PricingPolicy {
         private PriceCalculator delegate;
         private boolean failCalculation;
+        private BigDecimal finalPriceOverride;
 
         AdjustablePricingPolicy() {
             delegate = new PriceCalculator(
@@ -47,6 +48,10 @@ class PostgresIntegrationTestConfiguration {
             this.failCalculation = failCalculation;
         }
 
+        void setFinalPriceOverride(BigDecimal price) {
+            finalPriceOverride = price;
+        }
+
         @Override
         public BigDecimal calculateBasePrice(RepairOrder order) {
             return delegate.calculateBasePrice(order);
@@ -56,6 +61,9 @@ class PostgresIntegrationTestConfiguration {
         public BigDecimal calculateFinalPrice(RepairOrder order) {
             if (failCalculation) {
                 throw new PricingException(forcedPricingFailureMessage);
+            }
+            if (finalPriceOverride != null) {
+                return finalPriceOverride;
             }
             return delegate.calculateFinalPrice(order);
         }

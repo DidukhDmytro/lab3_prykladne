@@ -224,14 +224,14 @@ public class RepairOrder {
         if (finalPrice == null || completedAt == null) {
             throw new InvalidArgumentException(DomainMessages.completionDetailsRequired);
         }
-        validateCompletion();
+        ensureCanComplete();
         status = OrderStatus.COMPLETED;
         assignedMechanic.releaseFromOrder();
         this.finalPrice = finalPrice;
         this.completedAt = completedAt;
     }
 
-    private void validateCompletion() {
+    public void ensureCanComplete() {
         if (status != OrderStatus.IN_PROGRESS) {
             throw new InvalidStateTransitionException(DomainMessages.invalidCompleteStatus);
         }

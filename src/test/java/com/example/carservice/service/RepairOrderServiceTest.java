@@ -167,9 +167,6 @@ class RepairOrderServiceTest {
     void rejectsForbiddenTransition(OrderOperation operation, OrderStatus initial) {
         // Given
         prepareFor(initial, operation);
-        if (operation == OrderOperation.COMPLETE) {
-            when(pricingPolicy.calculateFinalPrice(order)).thenReturn(BigDecimal.ZERO);
-        }
 
         // When
         Runnable forbiddenOperation = () -> perform(operation);
@@ -179,6 +176,9 @@ class RepairOrderServiceTest {
             assertThrows(OrderModificationNotAllowedException.class, forbiddenOperation::run);
         } else {
             assertThrows(InvalidStateTransitionException.class, forbiddenOperation::run);
+        }
+        if (operation == OrderOperation.COMPLETE) {
+            verify(pricingPolicy, never()).calculateFinalPrice(any());
         }
     }
 
@@ -192,13 +192,13 @@ class RepairOrderServiceTest {
         order.approve();
         order.assignMechanic(mechanic);
         order.startProgress();
-        when(pricingPolicy.calculateFinalPrice(order)).thenReturn(BigDecimal.ZERO);
 
         // When
         Runnable completeOrder = () -> service.complete(orderId);
 
         // Then
         assertThrows(InvalidStateTransitionException.class, completeOrder::run);
+        verify(pricingPolicy, never()).calculateFinalPrice(any());
     }
 
     @Test

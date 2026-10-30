@@ -73,6 +73,8 @@ class RepairOrderPersistenceIT extends PostgresIntegrationTest {
     private static BigDecimal secondLabor = new BigDecimal("45.00");
     private static BigDecimal zeroCost = BigDecimal.ZERO;
     private static BigDecimal oneCost = BigDecimal.ONE;
+    private static BigDecimal oversizedFinalPrice = new BigDecimal("1000000000000.00");
+    private static int oversizedDescriptionLength = 300;
     private static int carYear = 2020;
     private static int firstPosition = 0;
     private static int secondPosition = 1;
@@ -107,6 +109,7 @@ class RepairOrderPersistenceIT extends PostgresIntegrationTest {
     @BeforeEach
     void resetPricingPolicy() {
         adjustablePricingPolicy.setFailCalculation(false);
+        adjustablePricingPolicy.setFinalPriceOverride(null);
     }
 
     @Test
@@ -220,6 +223,46 @@ class RepairOrderPersistenceIT extends PostgresIntegrationTest {
         assertEquals(
                 expectedWorkCount + workBatchSize,
                 jdbcTemplate.queryForObject(workCountQuery, Integer.class, orderId));
+    }
+
+    @Test
+    @DisplayName("Rolls back a work batch when the database rejects one element")
+    void rollsBackWorkBatchWhenDatabaseRejectsElement() {
+        // Given
+        createOrderInStatus(OrderStatus.CREATED);
+        String oversizedDescription = "x".repeat(oversizedDescriptionLength);
+        List<ServiceWork> works = List.of(
+                createWork(engineDescription, engineSpecialization, firstParts, firstLabor),
+                createWork(generalDescription, generalSpecialization, secondParts, secondLabor),
+                createWork(oversizedDescription, generalSpecialization, oneCost, zeroCost));
+
+        // When
+        Runnable addBatch = () -> repairOrderService.addWorks(orderId, works);
+
+        // Then
+        assertThrows(DataIntegrityViolationException.class, addBatch::run);
+        assertEquals(expectedWorkCount, jdbcTemplate.queryForObject(workCountQuery, Integer.class, orderId));
+    }
+
+    @Test
+    @DisplayName("Rolls back completion when the database rejects the final price")
+    void rollsBackCompletionWhenDatabaseRejectsFinalPrice() {
+        // Given
+        createOrderInStatus(OrderStatus.IN_PROGRESS);
+        repairOrderService.completeWork(orderId, firstPosition);
+        repairOrderService.completeWork(orderId, secondPosition);
+        adjustablePricingPolicy.setFinalPriceOverride(oversizedFinalPrice);
+        entityManager.clear();
+
+        // When
+        Runnable complete = () -> repairOrderService.complete(orderId);
+
+        // Then
+        assertThrows(DataIntegrityViolationException.class, complete::run);
+        assertEquals(inProgressStatusSql, jdbcTemplate.queryForObject(statusColumnQuery, String.class, orderId));
+        assertNull(jdbcTemplate.queryForObject(priceColumnQuery, BigDecimal.class, orderId));
+        assertNull(jdbcTemplate.queryForObject(completedAtQuery, java.time.OffsetDateTime.class, orderId));
+        assertTrue(jdbcTemplate.queryForObject(mechanicBusyQuery, Boolean.class, mechanicId));
     }
 
     @Test

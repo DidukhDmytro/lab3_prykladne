@@ -33,11 +33,12 @@ Run `mvn spring-boot:run` three times, waiting for each run to finish:
 3. The third run prints `order-complete loaded from database` and displays the persisted completed
    details without modifying the order.
 
-The database connection defaults to `jdbc:postgresql://localhost:5432/carservice` and username
-`carservice`. Set a local-only `DB_PASSWORD` in your shell before starting Compose and the app;
-the password is intentionally not stored in the repository. `DB_URL` and `DB_USERNAME` can also
-override their defaults. Stop PostgreSQL when finished with `docker compose down`; the named volume
-preserves its data. To repeat the lifecycle from a clean database, run
+The application connects to `jdbc:postgresql://localhost:5432/carservice` with username `carservice`
+and password `carservice`; these are local development credentials defined in `docker-compose.yml`
+and `src/main/resources/application.yml`. `DB_URL` and `DB_USERNAME` can override the URL and
+username through environment variables. The password is not configurable through the environment.
+Stop PostgreSQL when finished with `docker compose down`; the named volume preserves its data. To
+repeat the lifecycle from a clean database, run
 `docker compose down -v && docker compose up -d`.
 
 ## Tests
@@ -119,9 +120,10 @@ rows. Do not edit an already-applied migration; add a new versioned migration fo
 
 ## Transactions and optimistic locking
 
-`RepairOrderService.complete` calculates the final price before invoking the domain's single
-completion operation, which validates state, releases the mechanic, and records completion time;
-the change is saved within one transaction. `addWorks` also forms a transaction boundary and
+`RepairOrderService.complete` loads the order, validates that it can be completed, calculates the
+final price, completes the order, and saves it within one transaction. The domain operation also
+validates completion before releasing the mechanic and recording the completion time.
+`addWorks` also forms a transaction boundary and
 performs the work additions directly in its transactional method instead of calling another
 service method through `this`; self-invocation bypasses Spring's proxy. Runtime exceptions cause
 Spring to roll back the transaction by default.

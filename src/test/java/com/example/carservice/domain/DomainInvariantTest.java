@@ -320,6 +320,48 @@ class DomainInvariantTest {
     }
 
     @Test
+    @DisplayName("Allows completion when an in-progress order has completed all work")
+    void allowsCompletionWhenAllWorkIsComplete() {
+        // Given
+        RepairOrder order = createOrderInStatus(OrderStatus.IN_PROGRESS);
+        order.completeWork(0);
+
+        // When / Then
+        assertDoesNotThrow(order::ensureCanComplete);
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = OrderStatus.class,
+            names = {"CREATED", "DIAGNOSED", "APPROVED", "COMPLETED", "CANCELLED"})
+    @DisplayName("Rejects completion outside in-progress status")
+    void rejectsCompletionOutsideProgress(OrderStatus status) {
+        // Given
+        RepairOrder order = createOrderInStatus(status);
+
+        // When
+        InvalidStateTransitionException exception =
+                assertThrows(InvalidStateTransitionException.class, order::ensureCanComplete);
+
+        // Then
+        assertEquals(DomainMessages.invalidCompleteStatus, exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Rejects completion while any work is unfinished")
+    void rejectsCompletionWithUnfinishedWork() {
+        // Given
+        RepairOrder order = createOrderInStatus(OrderStatus.IN_PROGRESS);
+
+        // When
+        InvalidStateTransitionException exception =
+                assertThrows(InvalidStateTransitionException.class, order::ensureCanComplete);
+
+        // Then
+        assertEquals(DomainMessages.unfinishedWork, exception.getMessage());
+    }
+
+    @Test
     @DisplayName("Rejects missing completion details without changing order state")
     void rejectsMissingCompletionDetails() {
         // Given
