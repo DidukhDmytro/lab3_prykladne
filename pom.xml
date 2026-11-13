@@ -78,7 +78,6 @@
                 <version>3.5.2</version>
                 <configuration>
                     <excludes>
-                        <exclude>**/ApplicationContextTest.java</exclude>
                         <exclude>**/*IT.java</exclude>
                     </excludes>
                 </configuration>
@@ -94,7 +93,6 @@
                     <execution>
                         <configuration>
                             <includes>
-                                <include>**/ApplicationContextTest.java</include>
                                 <include>**/*IT.java</include>
                             </includes>
                         </configuration>

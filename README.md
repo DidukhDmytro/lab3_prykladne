@@ -49,7 +49,7 @@ recreate an existing local database after these migration changes, run
 Run unit tests (no Docker required):
 
 ```sh
-mvn clean test
+mvn -q clean test
 ```
 
 Run the full suite, including PostgreSQL integration tests (Docker required):
@@ -57,6 +57,11 @@ Run the full suite, including PostgreSQL integration tests (Docker required):
 ```sh
 mvn clean verify
 ```
+
+`RepairOrderIT` exercises complete normal- and urgent-priority service lifecycles, presents, status
+lookup and car ownership, duplicate-VIN rejection, invalid work-batch rollback, and failed-completion
+rollback. `OptimisticLockingIT` covers stale updates, retry after reload, and competing service
+assignments of one mechanic to different orders.
 
 The integration-test Spring configuration starts PostgreSQL through a `@ServiceConnection` bean.
 `IntegrationTest` runs `src/test/resources/sql/cleanup.sql` before each test. Integration tests are

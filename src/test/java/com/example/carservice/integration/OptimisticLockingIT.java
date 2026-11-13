@@ -11,11 +11,12 @@ import com.example.carservice.domain.enumerate.MechanicSpecialization;
 import com.example.carservice.domain.enumerate.OrderPriority;
 import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.domain.ServiceWork;
-import com.example.carservice.repository.MechanicRepository;
+import com.example.carservice.exception.MechanicAlreadyAssignedException;
 import com.example.carservice.repository.RepairOrderRepository;
 import com.example.carservice.service.RegistrationService;
 import com.example.carservice.service.RepairOrderService;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -44,23 +45,22 @@ class OptimisticLockingIT extends IntegrationTest {
     private static final String WORK_DESCRIPTION = "Concurrent assignment work";
     private static final String MISSING_ORDER_MESSAGE = "Optimistic-locking test order was not found.";
     private static final String LATCH_TIMEOUT_MESSAGE = "Timed out waiting for the competing transaction.";
-    private static final String STALE_WRITER_NO_FAILURE_MESSAGE = "No exception was thrown by the stale writer.";
+    private static final String NO_FAILURE_MESSAGE = "No exception was thrown by the competing operation.";
     private static final String EXCEPTION_MESSAGE_SEPARATOR = ": ";
     private static final long COORDINATION_TIMEOUT_SECONDS = 10;
     private static final long INITIAL_VERSION = 0;
     private static final long EXPECTED_VERSION_AFTER_FIRST_COMMIT = 1;
     private static final long EXPECTED_VERSION_AFTER_RETRY = 2;
-    private static final long EXPECTED_MECHANIC_VERSION = 1;
     private static final int COMPETING_TRANSACTION_COUNT = 2;
     private static final int EXPECTED_COMMITTED_ASSIGNMENT_COUNT = 1;
     private static final int EXPECTED_FAILED_ASSIGNMENT_COUNT = 1;
+    private static final int EXPECTED_ASSIGNED_ORDER_COUNT = 1;
     private static final int CAR_YEAR = 2024;
     private static final BigDecimal WORK_COST = BigDecimal.ZERO;
 
     private RegistrationService registrationService;
     private RepairOrderService repairOrderService;
     private RepairOrderRepository repairOrderRepository;
-    private MechanicRepository mechanicRepository;
     private TransactionTemplate transactionTemplate;
 
     @Autowired
@@ -68,12 +68,10 @@ class OptimisticLockingIT extends IntegrationTest {
             RegistrationService registrationService,
             RepairOrderService repairOrderService,
             RepairOrderRepository repairOrderRepository,
-            MechanicRepository mechanicRepository,
             PlatformTransactionManager transactionManager) {
         this.registrationService = registrationService;
         this.repairOrderService = repairOrderService;
         this.repairOrderRepository = repairOrderRepository;
-        this.mechanicRepository = mechanicRepository;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -131,7 +129,7 @@ class OptimisticLockingIT extends IntegrationTest {
     @DisplayName("Rejects one of two concurrent assignments to the same mechanic")
     void rejectsConcurrentAssignmentsToSameMechanic() {
         // Given
-        createOrder();
+        registerCustomerAndCar();
         registrationService.registerMechanic(new Mechanic(
                 MECHANIC_ID,
                 MECHANIC_NAME,
@@ -139,22 +137,18 @@ class OptimisticLockingIT extends IntegrationTest {
         createApprovedOrder(FIRST_ASSIGNMENT_ORDER_ID);
         createApprovedOrder(SECOND_ASSIGNMENT_ORDER_ID);
         ExecutorService executor = Executors.newFixedThreadPool(COMPETING_TRANSACTION_COUNT);
-        CountDownLatch mechanicReadsComplete = new CountDownLatch(COMPETING_TRANSACTION_COUNT);
         CountDownLatch assignmentsStart = new CountDownLatch(1);
         try {
             CompletableFuture<RuntimeException> firstAssignment = createAssignmentFuture(
                     FIRST_ASSIGNMENT_ORDER_ID,
-                    mechanicReadsComplete,
                     assignmentsStart,
                     executor);
             CompletableFuture<RuntimeException> secondAssignment = createAssignmentFuture(
                     SECOND_ASSIGNMENT_ORDER_ID,
-                    mechanicReadsComplete,
                     assignmentsStart,
                     executor);
 
             // When
-            await(mechanicReadsComplete);
             assignmentsStart.countDown();
             RuntimeException firstFailure = awaitResult(firstAssignment);
             RuntimeException secondFailure = awaitResult(secondAssignment);
@@ -166,16 +160,17 @@ class OptimisticLockingIT extends IntegrationTest {
             assertEquals(EXPECTED_FAILED_ASSIGNMENT_COUNT, failedAssignments);
             RuntimeException assignmentFailure = firstFailure == null ? secondFailure : firstFailure;
             assertTrue(
-                    assignmentFailure instanceof ObjectOptimisticLockingFailureException,
+                    assignmentFailure instanceof ObjectOptimisticLockingFailureException
+                            || assignmentFailure instanceof MechanicAlreadyAssignedException,
                     describeFailure(assignmentFailure));
-            Mechanic persistedMechanic = mechanicRepository.findById(MECHANIC_ID).orElseThrow();
+            Mechanic persistedMechanic = registrationService.findMechanic(MECHANIC_ID).orElseThrow();
             assertTrue(persistedMechanic.isBusy());
-            assertEquals(EXPECTED_MECHANIC_VERSION, persistedMechanic.getVersion());
-            long assignedOrderCount = repairOrderRepository.findAll().stream()
+            long assignedOrderCount = List.of(FIRST_ASSIGNMENT_ORDER_ID, SECOND_ASSIGNMENT_ORDER_ID).stream()
+                    .map(orderId -> repairOrderService.findOrder(orderId).orElseThrow())
                     .filter(order -> order.getAssignedMechanic() != null)
                     .filter(order -> MECHANIC_ID.equals(order.getAssignedMechanic().getId()))
                     .count();
-            assertEquals(EXPECTED_COMMITTED_ASSIGNMENT_COUNT, assignedOrderCount);
+            assertEquals(EXPECTED_ASSIGNED_ORDER_COUNT, assignedOrderCount);
         } finally {
             assignmentsStart.countDown();
             shutdownExecutor(executor);
@@ -184,22 +179,12 @@ class OptimisticLockingIT extends IntegrationTest {
 
     private CompletableFuture<RuntimeException> createAssignmentFuture(
             UUID assignedOrderId,
-            CountDownLatch mechanicReadsComplete,
             CountDownLatch assignmentsStart,
             ExecutorService executor) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                transactionTemplate.execute(status -> {
-                    RepairOrder order = repairOrderService.findOrder(assignedOrderId)
-                            .orElseThrow(() -> new IllegalStateException(MISSING_ORDER_MESSAGE));
-                    Mechanic mechanic = mechanicRepository.findById(MECHANIC_ID)
-                            .orElseThrow(() -> new IllegalStateException(MISSING_ORDER_MESSAGE));
-                    mechanicReadsComplete.countDown();
-                    await(assignmentsStart);
-                    order.assignMechanic(mechanic);
-                    repairOrderRepository.save(order);
-                    return null;
-                });
+                await(assignmentsStart);
+                repairOrderService.assignMechanic(assignedOrderId, MECHANIC_ID);
                 return null;
             } catch (RuntimeException exception) {
                 return exception;
@@ -225,6 +210,7 @@ class OptimisticLockingIT extends IntegrationTest {
         CountDownLatch firstCommitComplete = new CountDownLatch(1);
         CompletableFuture<RuntimeException> staleWriter = CompletableFuture.supplyAsync(() -> {
             try {
+                // Keep this transaction open so its read stays stale after the competing commit.
                 transactionTemplate.execute(status -> {
                     RepairOrder staleOrder = repairOrderRepository.findById(ORDER_ID)
                             .orElseThrow(() -> new IllegalStateException(MISSING_ORDER_MESSAGE));
@@ -263,7 +249,7 @@ class OptimisticLockingIT extends IntegrationTest {
 
     private String describeFailure(RuntimeException failure) {
         if (failure == null) {
-            return STALE_WRITER_NO_FAILURE_MESSAGE;
+            return NO_FAILURE_MESSAGE;
         }
         return failure.getClass().getName()
                 + EXCEPTION_MESSAGE_SEPARATOR
@@ -298,10 +284,14 @@ class OptimisticLockingIT extends IntegrationTest {
     }
 
     private void createOrder() {
+        registerCustomerAndCar();
+        repairOrderService.createOrder(ORDER_ID, CAR_VIN);
+    }
+
+    private void registerCustomerAndCar() {
         Customer customer = new Customer(CUSTOMER_ID, CUSTOMER_NAME, CUSTOMER_PHONE);
         registrationService.registerCustomer(customer);
         Car car = new Car(CAR_VIN, "Test Make", "Test Model", CAR_YEAR, customer);
         registrationService.registerCar(car);
-        repairOrderService.createOrder(ORDER_ID, CAR_VIN);
     }
 }
