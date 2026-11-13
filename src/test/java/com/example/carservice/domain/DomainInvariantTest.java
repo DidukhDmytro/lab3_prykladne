@@ -5,6 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.example.carservice.domain.enumerate.MechanicSpecialization;
+import com.example.carservice.domain.enumerate.OrderPriority;
+import com.example.carservice.domain.enumerate.OrderStatus;
+import com.example.carservice.domain.enumerate.WorkStatus;
 import com.example.carservice.exception.DomainException;
 import com.example.carservice.exception.DomainMessages;
 import com.example.carservice.exception.InvalidArgumentException;
@@ -13,6 +17,7 @@ import com.example.carservice.exception.MechanicNotCompatibleException;
 import com.example.carservice.exception.OrderModificationNotAllowedException;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,39 +26,37 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
 class DomainInvariantTest {
-    private static BigDecimal completionPrice = new BigDecimal("125.00");
-    private static Instant completionTime = Instant.parse("2026-10-29T12:00:00Z");
+    private static final BigDecimal COMPLETION_PRICE = new BigDecimal("125.00");
+    private static final Instant COMPLETION_TIME = Instant.parse("2026-10-29T12:00:00Z");
 
-    private String customerId = "customer-domain";
-    private String customerName = "Domain Customer";
-    private String phoneNumber = "555-0100";
-    private String vin = "VIN-DOMAIN";
-    private String workDescription = "Domain work";
+    private static final UUID CUSTOMER_ID = UUID.randomUUID();
+    private static final String CUSTOMER_NAME = "Domain Customer";
+    private static final String PHONE_NUMBER = "555-0100";
+    private static final String VIN = "VIN-DOMAIN";
+    private static final String WORK_DESCRIPTION = "Domain work";
     private Customer customer;
     private Car car;
 
     @BeforeEach
     void setUp() {
-        customer = new Customer(customerId, customerName, phoneNumber);
-        car = new Car(vin, "Test", "Model", 2020, customer);
+        customer = new Customer(CUSTOMER_ID, CUSTOMER_NAME, PHONE_NUMBER);
+        car = new Car(VIN, "Test", "Model", 2020, customer);
     }
 
     @Test
     @DisplayName("Validates customer constructor arguments")
     void validatesCustomerConstructor() {
         // Given
-        String blankId = " ";
         String blankName = " ";
         String blankPhone = " ";
 
         // When
         ExecutableCalls invalidCustomers = new ExecutableCalls();
-        invalidCustomers.add(() -> new Customer(null, customerName, phoneNumber));
-        invalidCustomers.add(() -> new Customer(blankId, customerName, phoneNumber));
-        invalidCustomers.add(() -> new Customer(customerId, null, phoneNumber));
-        invalidCustomers.add(() -> new Customer(customerId, blankName, phoneNumber));
-        invalidCustomers.add(() -> new Customer(customerId, customerName, null));
-        invalidCustomers.add(() -> new Customer(customerId, customerName, blankPhone));
+        invalidCustomers.add(() -> new Customer(null, CUSTOMER_NAME, PHONE_NUMBER));
+        invalidCustomers.add(() -> new Customer(CUSTOMER_ID, null, PHONE_NUMBER));
+        invalidCustomers.add(() -> new Customer(CUSTOMER_ID, blankName, PHONE_NUMBER));
+        invalidCustomers.add(() -> new Customer(CUSTOMER_ID, CUSTOMER_NAME, null));
+        invalidCustomers.add(() -> new Customer(CUSTOMER_ID, CUSTOMER_NAME, blankPhone));
 
         // Then
         invalidCustomers.assertEachThrowsInvalidArgument();
@@ -69,7 +72,7 @@ class DomainInvariantTest {
         ExecutableCalls invalidCars = new ExecutableCalls();
         invalidCars.add(() -> new Car(null, "Test", "Model", 2020, customer));
         invalidCars.add(() -> new Car(blankVin, "Test", "Model", 2020, customer));
-        invalidCars.add(() -> new Car(vin, "Test", "Model", 2020, null));
+        invalidCars.add(() -> new Car(VIN, "Test", "Model", 2020, null));
 
         // Then
         invalidCars.assertEachThrowsInvalidArgument();
@@ -79,21 +82,18 @@ class DomainInvariantTest {
     @DisplayName("Validates mechanic constructor arguments")
     void validatesMechanicConstructor() {
         // Given
-        String blankId = " ";
         String blankName = " ";
 
         // When
         ExecutableCalls invalidMechanics = new ExecutableCalls();
         invalidMechanics.add(() ->
-                new Mechanic(null, customerName, MechanicSpecialization.GENERAL));
+                new Mechanic(null, CUSTOMER_NAME, MechanicSpecialization.GENERAL));
         invalidMechanics.add(() ->
-                new Mechanic(blankId, customerName, MechanicSpecialization.GENERAL));
+                new Mechanic(UUID.randomUUID(), null, MechanicSpecialization.GENERAL));
         invalidMechanics.add(() ->
-                new Mechanic("mechanic-domain", null, MechanicSpecialization.GENERAL));
+                new Mechanic(UUID.randomUUID(), blankName, MechanicSpecialization.GENERAL));
         invalidMechanics.add(() ->
-                new Mechanic("mechanic-domain", blankName, MechanicSpecialization.GENERAL));
-        invalidMechanics.add(() ->
-                new Mechanic("mechanic-domain", customerName, null));
+                new Mechanic(UUID.randomUUID(), CUSTOMER_NAME, null));
 
         // Then
         invalidMechanics.assertEachThrowsInvalidArgument();
@@ -103,13 +103,10 @@ class DomainInvariantTest {
     @DisplayName("Validates repair order constructor arguments")
     void validatesRepairOrderConstructor() {
         // Given
-        String blankId = " ";
-
         // When
         ExecutableCalls invalidOrders = new ExecutableCalls();
         invalidOrders.add(() -> new RepairOrder(null, car));
-        invalidOrders.add(() -> new RepairOrder(blankId, car));
-        invalidOrders.add(() -> new RepairOrder("order-domain", null));
+        invalidOrders.add(() -> new RepairOrder(UUID.randomUUID(), null));
 
         // Then
         invalidOrders.assertEachThrowsInvalidArgument();
@@ -123,7 +120,7 @@ class DomainInvariantTest {
 
         // When
         Runnable constructZeroCostWork = () ->
-                new ServiceWork(workDescription, zeroCost, zeroCost, MechanicSpecialization.GENERAL);
+                new ServiceWork(WORK_DESCRIPTION, zeroCost, zeroCost, MechanicSpecialization.GENERAL);
 
         // Then
         assertDoesNotThrow(constructZeroCostWork::run);
@@ -133,7 +130,7 @@ class DomainInvariantTest {
     @DisplayName("Rejects adding null service work")
     void rejectsNullServiceWork() {
         // Given
-        RepairOrder order = new RepairOrder("order-null-work", car);
+        RepairOrder order = new RepairOrder(UUID.randomUUID(), car);
 
         // When
         Runnable addNullWork = () -> order.addWork(null);
@@ -146,7 +143,7 @@ class DomainInvariantTest {
     @DisplayName("Rejects assigning a null mechanic")
     void rejectsNullMechanicAssignment() {
         // Given
-        RepairOrder order = new RepairOrder("order-null-mechanic", car);
+        RepairOrder order = new RepairOrder(UUID.randomUUID(), car);
 
         // When
         Runnable assignNullMechanic = () -> order.assignMechanic(null);
@@ -159,9 +156,9 @@ class DomainInvariantTest {
     @DisplayName("Does not add incompatible work after mechanic assignment")
     void rejectsIncompatibleWorkAfterMechanicAssignment() {
         // Given
-        RepairOrder order = new RepairOrder("order-incompatible-work", car);
+        RepairOrder order = new RepairOrder(UUID.randomUUID(), car);
         Mechanic mechanic =
-                new Mechanic("mechanic-engine", customerName, MechanicSpecialization.ENGINE);
+                new Mechanic(UUID.randomUUID(), CUSTOMER_NAME, MechanicSpecialization.ENGINE);
         ServiceWork incompatibleWork = createWork(MechanicSpecialization.BRAKES);
         order.assignMechanic(mechanic);
 
@@ -185,9 +182,9 @@ class DomainInvariantTest {
             MechanicSpecialization mechanicSpecialization,
             MechanicSpecialization workSpecialization) {
         // Given
-        RepairOrder order = new RepairOrder("order-compatible-work", car);
+        RepairOrder order = new RepairOrder(UUID.randomUUID(), car);
         Mechanic mechanic =
-                new Mechanic("mechanic-compatible", customerName, mechanicSpecialization);
+                new Mechanic(UUID.randomUUID(), CUSTOMER_NAME, mechanicSpecialization);
         ServiceWork compatibleWork = createWork(workSpecialization);
         order.assignMechanic(mechanic);
 
@@ -208,17 +205,17 @@ class DomainInvariantTest {
         // When
         ExecutableCalls invalidWorks = new ExecutableCalls();
         invalidWorks.add(() ->
-                new ServiceWork(workDescription, null, BigDecimal.ZERO, MechanicSpecialization.GENERAL));
+                new ServiceWork(WORK_DESCRIPTION, null, BigDecimal.ZERO, MechanicSpecialization.GENERAL));
         invalidWorks.add(() ->
-                new ServiceWork(workDescription, BigDecimal.ZERO, null, MechanicSpecialization.GENERAL));
+                new ServiceWork(WORK_DESCRIPTION, BigDecimal.ZERO, null, MechanicSpecialization.GENERAL));
         invalidWorks.add(() ->
-                new ServiceWork(workDescription, negativeCost, BigDecimal.ZERO, MechanicSpecialization.GENERAL));
+                new ServiceWork(WORK_DESCRIPTION, negativeCost, BigDecimal.ZERO, MechanicSpecialization.GENERAL));
         invalidWorks.add(() ->
-                new ServiceWork(workDescription, BigDecimal.ZERO, negativeCost, MechanicSpecialization.GENERAL));
+                new ServiceWork(WORK_DESCRIPTION, BigDecimal.ZERO, negativeCost, MechanicSpecialization.GENERAL));
         invalidWorks.add(() ->
                 new ServiceWork(" ", BigDecimal.ZERO, BigDecimal.ZERO, MechanicSpecialization.GENERAL));
         invalidWorks.add(() ->
-                new ServiceWork(workDescription, BigDecimal.ZERO, BigDecimal.ZERO, null));
+                new ServiceWork(WORK_DESCRIPTION, BigDecimal.ZERO, BigDecimal.ZERO, null));
 
         // Then
         invalidWorks.assertEachThrowsInvalidArgument();
@@ -228,21 +225,21 @@ class DomainInvariantTest {
     @DisplayName("Rejects priority changes on a completed order")
     void rejectsPriorityChangeOnCompletedOrder() {
         // Given
-        RepairOrder order = new RepairOrder("order-completed", car);
+        RepairOrder order = new RepairOrder(UUID.randomUUID(), car);
         ServiceWork work = new ServiceWork(
-                workDescription,
+                WORK_DESCRIPTION,
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
                 MechanicSpecialization.GENERAL);
         Mechanic mechanic =
-                new Mechanic("mechanic-completed", customerName, MechanicSpecialization.GENERAL);
+                new Mechanic(UUID.randomUUID(), CUSTOMER_NAME, MechanicSpecialization.GENERAL);
         order.addWork(work);
         order.diagnose();
         order.approve();
         order.assignMechanic(mechanic);
         order.startProgress();
         work.complete();
-        order.complete(completionPrice, completionTime);
+        order.complete(COMPLETION_PRICE, COMPLETION_TIME);
 
         // When
         Runnable changePriority = () -> order.changePriority(OrderPriority.URGENT);
@@ -300,7 +297,7 @@ class DomainInvariantTest {
                 assertThrows(InvalidArgumentException.class, completeWork::run);
 
         // Then
-        assertEquals(DomainMessages.workIndexOutOfRange, exception.getMessage());
+        assertEquals(DomainMessages.WORK_INDEX_OUT_OF_RANGE, exception.getMessage());
     }
 
     @Test
@@ -311,12 +308,12 @@ class DomainInvariantTest {
         order.completeWork(0);
 
         // When
-        order.complete(completionPrice, completionTime);
+        order.complete(COMPLETION_PRICE, COMPLETION_TIME);
 
         // Then
         assertEquals(OrderStatus.COMPLETED, order.getStatus());
-        assertEquals(completionPrice, order.getFinalPrice());
-        assertEquals(completionTime, order.getCompletedAt());
+        assertEquals(COMPLETION_PRICE, order.getFinalPrice());
+        assertEquals(COMPLETION_TIME, order.getCompletedAt());
     }
 
     @Test
@@ -344,7 +341,7 @@ class DomainInvariantTest {
                 assertThrows(InvalidStateTransitionException.class, order::ensureCanComplete);
 
         // Then
-        assertEquals(DomainMessages.invalidCompleteStatus, exception.getMessage());
+        assertEquals(DomainMessages.INVALID_COMPLETE_STATUS, exception.getMessage());
     }
 
     @Test
@@ -358,7 +355,7 @@ class DomainInvariantTest {
                 assertThrows(InvalidStateTransitionException.class, order::ensureCanComplete);
 
         // Then
-        assertEquals(DomainMessages.unfinishedWork, exception.getMessage());
+        assertEquals(DomainMessages.UNFINISHED_WORK, exception.getMessage());
     }
 
     @Test
@@ -369,7 +366,7 @@ class DomainInvariantTest {
         order.completeWork(0);
 
         // When
-        Runnable completeWithoutPrice = () -> order.complete(null, completionTime);
+        Runnable completeWithoutPrice = () -> order.complete(null, COMPLETION_TIME);
 
         // Then
         assertThrows(InvalidArgumentException.class, completeWithoutPrice::run);
@@ -377,9 +374,9 @@ class DomainInvariantTest {
     }
 
     private RepairOrder createOrderInStatus(OrderStatus status) {
-        RepairOrder order = new RepairOrder("order-complete-work", car);
+        RepairOrder order = new RepairOrder(UUID.randomUUID(), car);
         order.addWork(new ServiceWork(
-                workDescription,
+                WORK_DESCRIPTION,
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
                 MechanicSpecialization.GENERAL));
@@ -395,8 +392,8 @@ class DomainInvariantTest {
                 || status == OrderStatus.COMPLETED) {
             order.approve();
             order.assignMechanic(new Mechanic(
-                    "mechanic-complete-work",
-                    customerName,
+                    UUID.randomUUID(),
+                    CUSTOMER_NAME,
                     MechanicSpecialization.GENERAL));
         }
         if (status == OrderStatus.IN_PROGRESS || status == OrderStatus.COMPLETED) {
@@ -404,14 +401,14 @@ class DomainInvariantTest {
         }
         if (status == OrderStatus.COMPLETED) {
             order.completeWork(0);
-            order.complete(completionPrice, completionTime);
+            order.complete(COMPLETION_PRICE, COMPLETION_TIME);
         }
         return order;
     }
 
     private ServiceWork createWork(MechanicSpecialization specialization) {
         return new ServiceWork(
-                workDescription,
+                WORK_DESCRIPTION,
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
                 specialization);

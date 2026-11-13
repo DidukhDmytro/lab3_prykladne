@@ -5,11 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.example.carservice.domain.Car;
 import com.example.carservice.domain.Customer;
 import com.example.carservice.domain.Gift;
-import com.example.carservice.domain.MechanicSpecialization;
+import com.example.carservice.domain.enumerate.MechanicSpecialization;
 import com.example.carservice.domain.Present;
 import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.domain.ServiceWork;
 import java.math.BigDecimal;
+import java.util.UUID;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -18,16 +19,16 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 class GiftPolicyTest {
-    private String workDescription = "Gift threshold work";
-    private String noGift = "No gift";
+    private static final String WORK_DESCRIPTION = "Gift threshold work";
+    private static final String NO_GIFT = "No gift";
     private RepairOrder order;
     private GiftPolicy giftPolicy;
 
     @BeforeEach
     void setUp() {
-        Customer customer = new Customer("customer-gift", "Gift Customer", "555-0100");
+        Customer customer = new Customer(UUID.randomUUID(), "Gift Customer", "555-0100");
         Car car = new Car("VIN-GIFT", "Test", "Model", 2020, customer);
-        order = new RepairOrder("order-gift", car);
+        order = new RepairOrder(UUID.randomUUID(), car);
         giftPolicy = new GiftPolicy();
     }
 
@@ -49,7 +50,7 @@ class GiftPolicyTest {
         Optional<Gift> gift = giftPolicy.createPresent(order).getGift();
 
         // Then
-        assertEquals(expectedGift, gift.map(Gift::getName).orElse(noGift));
+        assertEquals(expectedGift, gift.map(Gift::getName).orElse(NO_GIFT));
     }
 
     @Test
@@ -63,12 +64,12 @@ class GiftPolicyTest {
 
         // Then
         assertEquals(0, present.getPartsTotal().compareTo(BigDecimal.ZERO));
-        assertEquals(noGift, present.getGift().map(Gift::getName).orElse(noGift));
+        assertEquals(NO_GIFT, present.getGift().map(Gift::getName).orElse(NO_GIFT));
     }
 
     private void addParts(String amount) {
         order.addWork(new ServiceWork(
-                workDescription,
+                WORK_DESCRIPTION,
                 new BigDecimal(amount),
                 BigDecimal.ZERO,
                 MechanicSpecialization.GENERAL));

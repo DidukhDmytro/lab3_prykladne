@@ -13,7 +13,7 @@ import java.util.UUID;
 @Table(name = "customers")
 public class Customer {
     @Id
-    @Column(name = "id", length = 64)
+    @Column(name = "id")
     private UUID id;
 
     @Column(name = "full_name", nullable = false, length = 255)
@@ -25,22 +25,22 @@ public class Customer {
     protected Customer() {
     }
 
-    public Customer(String id, String fullName, String phoneNumber) {
-        if (id == null || id.isBlank()) {
-            throw new InvalidArgumentException(DomainMessages.invalidCustomerId);
+    public Customer(UUID id, String fullName, String phoneNumber) {
+        if (id == null) {
+            throw new InvalidArgumentException(DomainMessages.INVALID_CUSTOMER_ID);
         }
         if (fullName == null || fullName.isBlank()) {
-            throw new InvalidArgumentException(DomainMessages.invalidCustomerName);
+            throw new InvalidArgumentException(DomainMessages.INVALID_CUSTOMER_NAME);
         }
         if (phoneNumber == null || phoneNumber.isBlank()) {
-            throw new InvalidArgumentException(DomainMessages.invalidPhoneNumber);
+            throw new InvalidArgumentException(DomainMessages.INVALID_PHONE_NUMBER);
         }
         this.id = id;
         this.fullName = fullName;
         this.phoneNumber = phoneNumber;
     }
 
-    public String getId() {
+    public UUID getId() {
         return id;
     }
 

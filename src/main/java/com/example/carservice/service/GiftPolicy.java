@@ -13,21 +13,21 @@ import org.springframework.stereotype.Component;
 public class GiftPolicy {
     public Present createPresent(RepairOrder order) {
         if (order == null) {
-            throw new InvalidArgumentException(DomainMessages.giftOrderRequired);
+            throw new InvalidArgumentException(DomainMessages.GIFT_ORDER_REQUIRED);
         }
         BigDecimal partsTotal = order.calculatePartsTotal();
         return new Present(partsTotal, selectGift(partsTotal));
     }
 
     private Gift selectGift(BigDecimal partsTotal) {
-        if (isAvailableFor(partsTotal, AppConstants.discountVoucherMinimum)) {
-            return new Gift(AppConstants.discountVoucherName, AppConstants.discountVoucherMinimum);
+        if (isAvailableFor(partsTotal, AppConstants.DISCOUNT_VOUCHER_MINIMUM)) {
+            return new Gift(AppConstants.DISCOUNT_VOUCHER_NAME, AppConstants.DISCOUNT_VOUCHER_MINIMUM);
         }
-        if (isAvailableFor(partsTotal, AppConstants.interiorCleaningMinimum)) {
-            return new Gift(AppConstants.interiorCleaningName, AppConstants.interiorCleaningMinimum);
+        if (isAvailableFor(partsTotal, AppConstants.INTERIOR_CLEANING_MINIMUM)) {
+            return new Gift(AppConstants.INTERIOR_CLEANING_NAME, AppConstants.INTERIOR_CLEANING_MINIMUM);
         }
-        if (isAvailableFor(partsTotal, AppConstants.washerFluidMinimum)) {
-            return new Gift(AppConstants.washerFluidName, AppConstants.washerFluidMinimum);
+        if (isAvailableFor(partsTotal, AppConstants.WASHER_FLUID_MINIMUM)) {
+            return new Gift(AppConstants.WASHER_FLUID_NAME, AppConstants.WASHER_FLUID_MINIMUM);
         }
         return null;
     }

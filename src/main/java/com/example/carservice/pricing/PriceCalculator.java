@@ -1,6 +1,6 @@
 package com.example.carservice.pricing;
 
-import com.example.carservice.domain.OrderPriority;
+import com.example.carservice.domain.enumerate.OrderPriority;
 import com.example.carservice.domain.RepairOrder;
 import java.math.BigDecimal;
 import java.util.List;
@@ -27,7 +27,7 @@ public class PriceCalculator implements PricingPolicy {
 
     private PricingContext toPricingContext(RepairOrder order) {
         if (order == null) {
-            throw new PricingException(PricingMessages.pricingOrderRequired);
+            throw new PricingException(PricingMessages.PRICING_ORDER_REQUIRED);
         }
         return new PricingContext(
                 order.calculateLaborTotal(),

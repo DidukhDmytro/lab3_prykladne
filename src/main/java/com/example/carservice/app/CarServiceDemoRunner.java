@@ -4,15 +4,13 @@ import com.example.carservice.config.AppConstants;
 import com.example.carservice.domain.Car;
 import com.example.carservice.domain.Customer;
 import com.example.carservice.domain.Mechanic;
-import com.example.carservice.domain.MechanicSpecialization;
-import com.example.carservice.domain.OrderPriority;
-import com.example.carservice.domain.OrderStatus;
+import com.example.carservice.domain.enumerate.MechanicSpecialization;
+import com.example.carservice.domain.enumerate.OrderPriority;
+import com.example.carservice.domain.enumerate.OrderStatus;
 import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.domain.ServiceWork;
-import com.example.carservice.domain.WorkStatus;
-import com.example.carservice.exception.DomainException;
+import com.example.carservice.domain.enumerate.WorkStatus;
 import com.example.carservice.pricing.PriceCalculator;
-import com.example.carservice.pricing.PricingException;
 import com.example.carservice.pricing.PricingPolicy;
 import com.example.carservice.pricing.rule.FixedDiscountRule;
 import com.example.carservice.pricing.rule.PercentageDiscountRule;
@@ -21,110 +19,76 @@ import com.example.carservice.service.RepairOrderService;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.UUID;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 @Component
 @Profile("!test")
 public class CarServiceDemoRunner implements CommandLineRunner {
-    private static String customerId = "customer-001";
-    private static String customerName = "Alex Morgan";
-    private static String customerPhone = "+1-555-0100";
-    private static String carVin = "DEMO-VIN-001";
-    private static String carMake = "Example Motors";
-    private static String carModel = "Roadster";
-    private static int carYear = 2010;
-    private static int currentYear = 2026;
-    private static int oldCarAgeLimit = 10;
-    private static String mechanicId = "mechanic-general";
-    private static String mechanicName = "Taylor General";
-    private static String engineMechanicId = "mechanic-engine";
-    private static String engineMechanicName = "Jordan Engine";
-    private static String brakesMechanicId = "mechanic-brakes";
-    private static String brakesMechanicName = "Casey Brakes";
-    private static String demoOrderId = "order-complete";
-    private static String normalPricingOrderId = "pricing-normal";
-    private static String urgentPricingOrderId = "pricing-urgent";
-    private static String invalidTransitionOrderId = "order-demo-invalid-transition";
-    private static String batchOrderId = "order-demo-batch-rollback";
-    private static String missingOrderId = "order-demo-missing";
-    private static String optimisticOrderId = "order-demo-optimistic-lock";
-    private static String restartInstruction =
+    private static final UUID CUSTOMER_ID = UUID.fromString("00000000-0000-4000-8000-000000000001");
+    private static final String CUSTOMER_NAME = "Alex Morgan";
+    private static final String CUSTOMER_PHONE = "+1-555-0100";
+    private static final String CAR_VIN = "DEMO-VIN-001";
+    private static final String CAR_MAKE = "Example Motors";
+    private static final String CAR_MODEL = "Roadster";
+    private static final int CAR_YEAR = 2010;
+    private static final int CURRENT_YEAR = 2026;
+    private static final int OLD_CAR_AGE_LIMIT = 10;
+    private static final UUID MECHANIC_ID = UUID.fromString("00000000-0000-4000-8000-000000000002");
+    private static final String MECHANIC_NAME = "Taylor General";
+    private static final UUID DEMO_ORDER_ID =
+            UUID.fromString("00000000-0000-4000-8000-000000000005");
+    private static final UUID NORMAL_PRICING_ORDER_ID =
+            UUID.fromString("00000000-0000-4000-8000-000000000006");
+    private static final UUID URGENT_PRICING_ORDER_ID =
+            UUID.fromString("00000000-0000-4000-8000-000000000007");
+    private static final String RESTART_INSTRUCTION =
             "Run the application again to load and complete this order.";
-    private static String registrationFormat = "%s -> %s";
-    private static String loadedOrderFormat = "%s loaded from database -> status: %s";
-    private static String mechanicFormat = "Assigned mechanic: %s";
-    private static String orderStatusFormat = "Order status: %s";
-    private static String noMechanicLabel = "none";
-    private static String workFormat = "Work: %s | status: %s | parts: %s | labor: %s";
-    private static String completionFormat =
+    private static final String REGISTRATION_FORMAT = "%s -> %s";
+    private static final String LOADED_ORDER_FORMAT = "%s loaded from database -> status: %s";
+    private static final String MECHANIC_FORMAT = "Assigned mechanic: %s";
+    private static final String ORDER_STATUS_FORMAT = "Order status: %s";
+    private static final String NO_MECHANIC_LABEL = "none";
+    private static final String WORK_FORMAT = "Work: %s | status: %s | parts: %s | labor: %s";
+    private static final String COMPLETION_FORMAT =
             "Completed order -> final price: %s; status: %s; completed at: %s";
-    private static String priceFormat = "%s -> base: %s; final: %s";
-    private static String expectedErrorFormat = "%s -> expected error: %s";
-    private static String missingExpectedErrorFormat = "%s -> expected error did not occur";
-    private static String beforeCountFormat = "Batch work count before: %s";
-    private static String afterCountFormat = "Batch work count after: %s";
-    private static String createdOrderLabel = "Created demo order";
-    private static String customerRegisteredLabel = "Customer registered";
-    private static String carRegisteredLabel = "Car registered";
-    private static String mechanicRegisteredLabel = "Mechanic registered";
-    private static String normalPricingLabel = "Normal pricing";
-    private static String urgentPricingLabel = "Urgent surcharge";
-    private static String fixedThenPercentLabel = "Fixed discount then percentage discount";
-    private static String percentThenFixedLabel = "Percentage discount then fixed discount";
-    private static String oldCarPricingLabel = "Old-car discount";
-    private static String customSurchargeLabel = "Custom surcharge before percentage discount";
-    private static String invalidTransitionLabel = "Completing an order before progress";
-    private static String missingOrderLabel = "Loading a missing order";
-    private static String batchFailureLabel = "Adding a batch with an invalid last work item";
-    private static String duplicateOrderLabel = "Creating a duplicate order";
-    private static String optimisticLockLabel = "Concurrent order priority update";
-    private static String optimisticLockFailureFormat = "%s -> expected optimistic-lock conflict: %s";
-    private static String missingOptimisticLockFormat = "%s -> expected optimistic-lock conflict did not occur";
-    private static String optimisticLockOrderMissingMessage = "Optimistic-lock demo order was not found.";
-    private static String latchTimeoutMessage = "Timed out waiting for the competing transaction.";
-    private static String staleWriterThreadName = "demo-optimistic-stale-writer";
-    private static String engineDescription = "Engine service";
-    private static String brakesDescription = "Brake service";
-    private static String batchDescription = "Batch rollback check";
-    private static BigDecimal enginePartsCost = new BigDecimal("200.00");
-    private static BigDecimal engineLaborCost = new BigDecimal("85.00");
-    private static BigDecimal brakesPartsCost = new BigDecimal("60.00");
-    private static BigDecimal brakesLaborCost = new BigDecimal("45.00");
-    private static BigDecimal batchPartsCost = new BigDecimal("10.00");
-    private static BigDecimal batchLaborCost = new BigDecimal("5.00");
-    private static BigDecimal discountPercent = new BigDecimal("10");
-    private static BigDecimal oldCarDiscountPercent = new BigDecimal("5");
-    private static BigDecimal fixedDiscountAmount = new BigDecimal("100.00");
-    private static BigDecimal customSurchargeAmount = new BigDecimal("25.00");
-    private static int firstWorkIndex = 0;
-    private static int latchInitialCount = 1;
-    private static long coordinationTimeoutSeconds = 10;
-    private static long threadJoinTimeoutMillis = 10000;
+    private static final String PRICE_FORMAT = "%s -> base: %s; final: %s";
+    private static final String CREATED_ORDER_LABEL = "Created demo order";
+    private static final String CUSTOMER_REGISTERED_LABEL = "Customer registered";
+    private static final String CAR_REGISTERED_LABEL = "Car registered";
+    private static final String MECHANIC_REGISTERED_LABEL = "Mechanic registered";
+    private static final String NORMAL_PRICING_LABEL = "Normal pricing";
+    private static final String URGENT_PRICING_LABEL = "Urgent surcharge";
+    private static final String FIXED_THEN_PERCENT_LABEL = "Fixed discount then percentage discount";
+    private static final String PERCENT_THEN_FIXED_LABEL = "Percentage discount then fixed discount";
+    private static final String OLD_CAR_PRICING_LABEL = "Old-car discount";
+    private static final String CUSTOM_SURCHARGE_LABEL = "Custom surcharge before percentage discount";
+    private static final String ENGINE_DESCRIPTION = "Engine service";
+    private static final String BRAKES_DESCRIPTION = "Brake service";
+    private static final BigDecimal ENGINE_PARTS_COST = new BigDecimal("200.00");
+    private static final BigDecimal ENGINE_LABOR_COST = new BigDecimal("85.00");
+    private static final BigDecimal BRAKES_PARTS_COST = new BigDecimal("60.00");
+    private static final BigDecimal BRAKES_LABOR_COST = new BigDecimal("45.00");
+    private static final BigDecimal DISCOUNT_PERCENT = new BigDecimal("10");
+    private static final BigDecimal OLD_CAR_DISCOUNT_PERCENT = new BigDecimal("5");
+    private static final BigDecimal FIXED_DISCOUNT_AMOUNT = new BigDecimal("100.00");
+    private static final BigDecimal CUSTOM_SURCHARGE_AMOUNT = new BigDecimal("25.00");
+    private static final int FIRST_WORK_INDEX = 0;
 
     private RegistrationService registrationService;
     private RepairOrderService repairOrderService;
     private PricingPolicy pricingPolicy;
-    private TransactionTemplate transactionTemplate;
 
     public CarServiceDemoRunner(
             RegistrationService registrationService,
             RepairOrderService repairOrderService,
-            PricingPolicy pricingPolicy,
-            PlatformTransactionManager transactionManager) {
+            PricingPolicy pricingPolicy) {
         this.registrationService = registrationService;
         this.repairOrderService = repairOrderService;
         this.pricingPolicy = pricingPolicy;
-        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     @Override
@@ -132,54 +96,44 @@ public class CarServiceDemoRunner implements CommandLineRunner {
         Customer customer = ensureCustomer();
         Car car = ensureCar(customer);
         Mechanic mechanic = ensureMechanic(
-                mechanicId,
-                mechanicName,
+                MECHANIC_ID,
+                MECHANIC_NAME,
                 MechanicSpecialization.GENERAL);
-        ensureMechanic(
-                engineMechanicId,
-                engineMechanicName,
-                MechanicSpecialization.ENGINE);
-        ensureMechanic(
-                brakesMechanicId,
-                brakesMechanicName,
-                MechanicSpecialization.BRAKES);
-        Optional<RepairOrder> existingOrder = repairOrderService.findOrder(demoOrderId);
+        Optional<RepairOrder> existingOrder = repairOrderService.findOrder(DEMO_ORDER_ID);
         if (existingOrder.isPresent()) {
             handleExistingDemoOrder(existingOrder.get());
         } else {
             RepairOrder order = createDemoOrder(car, mechanic);
             printOrderDetails(order);
-            System.out.println(restartInstruction);
+            System.out.println(RESTART_INSTRUCTION);
         }
         runPricingDemonstrations(car);
-        runNegativeScenarios(car);
-        runOptimisticLockingScenario(car);
     }
 
     private Customer ensureCustomer() {
-        Optional<Customer> existing = registrationService.findCustomer(customerId);
+        Optional<Customer> existing = registrationService.findCustomer(CUSTOMER_ID);
         if (existing.isPresent()) {
             return existing.get();
         }
-        Customer customer = new Customer(customerId, customerName, customerPhone);
+        Customer customer = new Customer(CUSTOMER_ID, CUSTOMER_NAME, CUSTOMER_PHONE);
         registrationService.registerCustomer(customer);
-        System.out.println(String.format(registrationFormat, customerRegisteredLabel, customerId));
+        System.out.println(String.format(REGISTRATION_FORMAT, CUSTOMER_REGISTERED_LABEL, CUSTOMER_ID));
         return customer;
     }
 
     private Car ensureCar(Customer customer) {
-        Optional<Car> existing = registrationService.findCar(carVin);
+        Optional<Car> existing = registrationService.findCar(CAR_VIN);
         if (existing.isPresent()) {
             return existing.get();
         }
-        Car car = new Car(carVin, carMake, carModel, carYear, customer);
+        Car car = new Car(CAR_VIN, CAR_MAKE, CAR_MODEL, CAR_YEAR, customer);
         registrationService.registerCar(car);
-        System.out.println(String.format(registrationFormat, carRegisteredLabel, carVin));
+        System.out.println(String.format(REGISTRATION_FORMAT, CAR_REGISTERED_LABEL, CAR_VIN));
         return car;
     }
 
     private Mechanic ensureMechanic(
-            String id,
+            UUID id,
             String name,
             MechanicSpecialization specialization) {
         Optional<Mechanic> existing = registrationService.findMechanic(id);
@@ -191,24 +145,24 @@ public class CarServiceDemoRunner implements CommandLineRunner {
                 name,
                 specialization);
         registrationService.registerMechanic(mechanic);
-        System.out.println(String.format(registrationFormat, mechanicRegisteredLabel, id));
+        System.out.println(String.format(REGISTRATION_FORMAT, MECHANIC_REGISTERED_LABEL, id));
         return mechanic;
     }
 
     private RepairOrder createDemoOrder(Car car, Mechanic mechanic) {
-        repairOrderService.createOrder(demoOrderId, car.getVin());
-        repairOrderService.addWorks(demoOrderId, List.of(createEngineWork(), createBrakesWork()));
-        repairOrderService.diagnose(demoOrderId);
-        repairOrderService.approve(demoOrderId);
-        repairOrderService.assignMechanic(demoOrderId, mechanic.getId());
-        repairOrderService.startProgress(demoOrderId);
-        RepairOrder createdOrder = repairOrderService.getOrder(demoOrderId);
-        System.out.println(String.format(registrationFormat, createdOrderLabel, demoOrderId));
+        repairOrderService.createOrder(DEMO_ORDER_ID, car.getVin());
+        repairOrderService.addWorks(DEMO_ORDER_ID, List.of(createEngineWork(), createBrakesWork()));
+        repairOrderService.diagnose(DEMO_ORDER_ID);
+        repairOrderService.approve(DEMO_ORDER_ID);
+        repairOrderService.assignMechanic(DEMO_ORDER_ID, mechanic.getId());
+        repairOrderService.startProgress(DEMO_ORDER_ID);
+        RepairOrder createdOrder = repairOrderService.findOrder(DEMO_ORDER_ID).orElseThrow();
+        System.out.println(String.format(REGISTRATION_FORMAT, CREATED_ORDER_LABEL, DEMO_ORDER_ID));
         return createdOrder;
     }
 
     private void handleExistingDemoOrder(RepairOrder order) {
-        System.out.println(String.format(loadedOrderFormat, demoOrderId, order.getStatus()));
+        System.out.println(String.format(LOADED_ORDER_FORMAT, DEMO_ORDER_ID, order.getStatus()));
         printOrderDetails(order);
         if (order.getStatus() == OrderStatus.IN_PROGRESS) {
             completeDemoOrder(order);
@@ -218,14 +172,14 @@ public class CarServiceDemoRunner implements CommandLineRunner {
     }
 
     private void printOrderDetails(RepairOrder order) {
-        System.out.println(String.format(orderStatusFormat, order.getStatus()));
+        System.out.println(String.format(ORDER_STATUS_FORMAT, order.getStatus()));
         Mechanic mechanic = order.getAssignedMechanic();
         System.out.println(String.format(
-                mechanicFormat,
-                mechanic == null ? noMechanicLabel : mechanic.getFullName()));
+                MECHANIC_FORMAT,
+                mechanic == null ? NO_MECHANIC_LABEL : mechanic.getFullName()));
         order.getWorks().stream()
                 .map(work -> String.format(
-                        workFormat,
+                        WORK_FORMAT,
                         work.getDescription(),
                         work.getStatus(),
                         work.getPartsCost(),
@@ -235,80 +189,80 @@ public class CarServiceDemoRunner implements CommandLineRunner {
 
     private void completeDemoOrder(RepairOrder order) {
         List<ServiceWork> works = order.getWorks();
-        IntStream.range(firstWorkIndex, works.size())
+        IntStream.range(FIRST_WORK_INDEX, works.size())
                 .filter(index -> works.get(index).getStatus() == WorkStatus.PENDING)
-                .forEach(index -> repairOrderService.completeWork(demoOrderId, index));
-        repairOrderService.complete(demoOrderId);
-        printCompletion(repairOrderService.getOrder(demoOrderId));
+                .forEach(index -> repairOrderService.completeWork(DEMO_ORDER_ID, index));
+        repairOrderService.complete(DEMO_ORDER_ID);
+        printCompletion(repairOrderService.findOrder(DEMO_ORDER_ID).orElseThrow());
     }
 
     private void printCompletion(RepairOrder order) {
         System.out.println(String.format(
-                completionFormat,
+                COMPLETION_FORMAT,
                 order.getFinalPrice(),
                 order.getStatus(),
                 order.getCompletedAt()));
     }
 
     private void runPricingDemonstrations(Car car) {
-        RepairOrder normalOrder = createPricingOrder(normalPricingOrderId, car, false);
-        printPrice(normalPricingLabel, normalOrder);
-        RepairOrder urgentOrder = createPricingOrder(urgentPricingOrderId, car, true);
-        printPrice(urgentPricingLabel, urgentOrder);
+        RepairOrder normalOrder = createPricingOrder(NORMAL_PRICING_ORDER_ID, car, false);
+        printPrice(NORMAL_PRICING_LABEL, normalOrder);
+        RepairOrder urgentOrder = createPricingOrder(URGENT_PRICING_ORDER_ID, car, true);
+        printPrice(URGENT_PRICING_LABEL, urgentOrder);
 
         PriceCalculator fixedThenPercentCalculator = new PriceCalculator(
                 List.of(
-                        new FixedDiscountRule(fixedDiscountAmount),
-                        new PercentageDiscountRule(discountPercent)),
-                AppConstants.minimumPrice);
+                        new FixedDiscountRule(FIXED_DISCOUNT_AMOUNT),
+                        new PercentageDiscountRule(DISCOUNT_PERCENT)),
+                AppConstants.MINIMUM_PRICE);
         PriceCalculator percentThenFixedCalculator = new PriceCalculator(
                 List.of(
-                        new PercentageDiscountRule(discountPercent),
-                        new FixedDiscountRule(fixedDiscountAmount)),
-                AppConstants.minimumPrice);
+                        new PercentageDiscountRule(DISCOUNT_PERCENT),
+                        new FixedDiscountRule(FIXED_DISCOUNT_AMOUNT)),
+                AppConstants.MINIMUM_PRICE);
         System.out.println(String.format(
-                priceFormat,
-                fixedThenPercentLabel,
+                PRICE_FORMAT,
+                FIXED_THEN_PERCENT_LABEL,
                 fixedThenPercentCalculator.calculateBasePrice(normalOrder),
                 fixedThenPercentCalculator.calculateFinalPrice(normalOrder)));
         System.out.println(String.format(
-                priceFormat,
-                percentThenFixedLabel,
+                PRICE_FORMAT,
+                PERCENT_THEN_FIXED_LABEL,
                 percentThenFixedCalculator.calculateBasePrice(normalOrder),
                 percentThenFixedCalculator.calculateFinalPrice(normalOrder)));
         PriceCalculator customStageCalculator = new PriceCalculator(
                 List.of(
-                        new PercentageDiscountRule(discountPercent),
-                        new DemonstrationSurchargeRule(customSurchargeAmount)),
-                AppConstants.minimumPrice);
+                        new PercentageDiscountRule(DISCOUNT_PERCENT),
+                        new DemonstrationSurchargeRule(CUSTOM_SURCHARGE_AMOUNT)),
+                AppConstants.MINIMUM_PRICE);
         System.out.println(String.format(
-                priceFormat,
-                customSurchargeLabel,
+                PRICE_FORMAT,
+                CUSTOM_SURCHARGE_LABEL,
                 customStageCalculator.calculateBasePrice(normalOrder),
                 customStageCalculator.calculateFinalPrice(normalOrder)));
 
         PriceCalculator oldCarCalculator = new PriceCalculator(
                 List.of(new OldCarDiscountRule(
-                        currentYear,
-                        oldCarAgeLimit,
-                        oldCarDiscountPercent)),
-                AppConstants.minimumPrice);
+                        CURRENT_YEAR,
+                        OLD_CAR_AGE_LIMIT,
+                        OLD_CAR_DISCOUNT_PERCENT)),
+                AppConstants.MINIMUM_PRICE);
         System.out.println(String.format(
-                priceFormat,
-                oldCarPricingLabel,
+                PRICE_FORMAT,
+                OLD_CAR_PRICING_LABEL,
                 oldCarCalculator.calculateBasePrice(normalOrder),
                 oldCarCalculator.calculateFinalPrice(normalOrder)));
     }
 
     private void printPrice(String label, RepairOrder order) {
         System.out.println(String.format(
-                priceFormat,
+                PRICE_FORMAT,
                 label,
                 pricingPolicy.calculateBasePrice(order),
                 pricingPolicy.calculateFinalPrice(order)));
     }
 
-    private RepairOrder createPricingOrder(String id, Car car, boolean urgent) {
+    private RepairOrder createPricingOrder(UUID id, Car car, boolean urgent) {
         RepairOrder order = new RepairOrder(id, car);
         order.addWork(createEngineWork());
         order.addWork(createBrakesWork());
@@ -318,144 +272,20 @@ public class CarServiceDemoRunner implements CommandLineRunner {
         return order;
     }
 
-    private void runNegativeScenarios(Car car) {
-        runExpectedFailure(
-                duplicateOrderLabel,
-                () -> repairOrderService.createOrder(demoOrderId, car.getVin()));
-        runExpectedFailure(invalidTransitionLabel, () -> {
-            ensureNegativeOrder(invalidTransitionOrderId, car);
-            repairOrderService.complete(invalidTransitionOrderId);
-        });
-        runExpectedFailure(missingOrderLabel, () -> repairOrderService.getOrder(missingOrderId));
-        runBatchRollbackScenario(car);
-    }
-
-    private void runOptimisticLockingScenario(Car car) {
-        ensureNegativeOrder(optimisticOrderId, car);
-        CountDownLatch staleReadComplete = new CountDownLatch(latchInitialCount);
-        CountDownLatch firstCommitComplete = new CountDownLatch(latchInitialCount);
-        AtomicReference<RuntimeException> staleTransactionFailure = new AtomicReference<>();
-        Thread staleWriter = new Thread(() -> {
-            try {
-                transactionTemplate.execute(status -> {
-                    repairOrderService.findOrder(optimisticOrderId)
-                            .orElseThrow(() -> new IllegalStateException(optimisticLockOrderMissingMessage));
-                    staleReadComplete.countDown();
-                    await(firstCommitComplete);
-                    repairOrderService.changePriority(optimisticOrderId, OrderPriority.URGENT);
-                    return null;
-                });
-            } catch (RuntimeException exception) {
-                staleTransactionFailure.set(exception);
-            }
-        }, staleWriterThreadName);
-        staleWriter.start();
-        boolean staleReadCompleted;
-        try {
-            staleReadCompleted = staleReadComplete.await(coordinationTimeoutSeconds, TimeUnit.SECONDS);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException(latchTimeoutMessage, exception);
-        }
-        if (!staleReadCompleted) {
-            firstCommitComplete.countDown();
-            joinStaleWriter(staleWriter);
-            throw new IllegalStateException(latchTimeoutMessage);
-        }
-        try {
-            repairOrderService.changePriority(optimisticOrderId, OrderPriority.URGENT);
-        } finally {
-            firstCommitComplete.countDown();
-        }
-        joinStaleWriter(staleWriter);
-        try {
-            RuntimeException failure = staleTransactionFailure.get();
-            if (failure != null) {
-                throw failure;
-            }
-            System.out.println(String.format(missingOptimisticLockFormat, optimisticLockLabel));
-        } catch (ObjectOptimisticLockingFailureException exception) {
-            System.out.println(String.format(
-                    optimisticLockFailureFormat,
-                    optimisticLockLabel,
-                    exception.getMessage()));
-        }
-        transactionTemplate.execute(status ->
-                repairOrderService.changePriority(optimisticOrderId, OrderPriority.NORMAL));
-    }
-
-    private void runBatchRollbackScenario(Car car) {
-        ensureNegativeOrder(batchOrderId, car);
-        int beforeCount = repairOrderService.getOrder(batchOrderId).getWorks().size();
-        System.out.println(String.format(beforeCountFormat, beforeCount));
-        runExpectedFailure(batchFailureLabel, () -> repairOrderService.addWorks(
-                batchOrderId,
-                Stream.of(createBatchWork(), null).toList()));
-        int afterCount = repairOrderService.getOrder(batchOrderId).getWorks().size();
-        System.out.println(String.format(afterCountFormat, afterCount));
-    }
-
-    private void ensureNegativeOrder(String orderId, Car car) {
-        if (repairOrderService.findOrder(orderId).isEmpty()) {
-            repairOrderService.createOrder(orderId, car.getVin());
-        }
-    }
-
-    private void await(CountDownLatch latch) {
-        try {
-            boolean released = latch.await(coordinationTimeoutSeconds, TimeUnit.SECONDS);
-            if (!released) {
-                throw new IllegalStateException(latchTimeoutMessage);
-            }
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException(latchTimeoutMessage, exception);
-        }
-    }
-
-    private void joinStaleWriter(Thread staleWriter) {
-        try {
-            staleWriter.join(threadJoinTimeoutMillis);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException(latchTimeoutMessage, exception);
-        }
-        if (staleWriter.isAlive()) {
-            throw new IllegalStateException(latchTimeoutMessage);
-        }
-    }
-
-    private void runExpectedFailure(String label, Runnable operation) {
-        try {
-            operation.run();
-            System.out.println(String.format(missingExpectedErrorFormat, label));
-        } catch (DomainException | PricingException exception) {
-            System.out.println(String.format(expectedErrorFormat, label, exception.getMessage()));
-        }
-    }
-
     private ServiceWork createEngineWork() {
         return new ServiceWork(
-                engineDescription,
-                enginePartsCost,
-                engineLaborCost,
+                ENGINE_DESCRIPTION,
+                ENGINE_PARTS_COST,
+                ENGINE_LABOR_COST,
                 MechanicSpecialization.ENGINE);
     }
 
     private ServiceWork createBrakesWork() {
         return new ServiceWork(
-                brakesDescription,
-                brakesPartsCost,
-                brakesLaborCost,
+                BRAKES_DESCRIPTION,
+                BRAKES_PARTS_COST,
+                BRAKES_LABOR_COST,
                 MechanicSpecialization.BRAKES);
-    }
-
-    private ServiceWork createBatchWork() {
-        return new ServiceWork(
-                batchDescription,
-                batchPartsCost,
-                batchLaborCost,
-                MechanicSpecialization.GENERAL);
     }
 
 }

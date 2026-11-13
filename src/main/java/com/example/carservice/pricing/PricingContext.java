@@ -6,7 +6,7 @@ import java.math.BigDecimal;
  * Immutable pricing inputs with private fields, getters only, and no setters.
  */
 public class PricingContext {
-    private static BigDecimal zeroTotal = BigDecimal.ZERO;
+    private static final BigDecimal ZERO_TOTAL = BigDecimal.ZERO;
 
     private BigDecimal laborTotal;
     private BigDecimal partsTotal;
@@ -19,16 +19,16 @@ public class PricingContext {
             boolean urgent,
             int carYear) {
         if (laborTotal == null) {
-            throw new PricingException(PricingMessages.laborTotalRequired);
+            throw new PricingException(PricingMessages.LABOR_TOTAL_REQUIRED);
         }
-        if (laborTotal.compareTo(zeroTotal) < 0) {
-            throw new PricingException(PricingMessages.negativeLaborTotal);
+        if (laborTotal.compareTo(ZERO_TOTAL) < 0) {
+            throw new PricingException(PricingMessages.NEGATIVE_LABOR_TOTAL);
         }
         if (partsTotal == null) {
-            throw new PricingException(PricingMessages.partsTotalRequired);
+            throw new PricingException(PricingMessages.PARTS_TOTAL_REQUIRED);
         }
-        if (partsTotal.compareTo(zeroTotal) < 0) {
-            throw new PricingException(PricingMessages.negativePartsTotal);
+        if (partsTotal.compareTo(ZERO_TOTAL) < 0) {
+            throw new PricingException(PricingMessages.NEGATIVE_PARTS_TOTAL);
         }
         this.laborTotal = laborTotal;
         this.partsTotal = partsTotal;

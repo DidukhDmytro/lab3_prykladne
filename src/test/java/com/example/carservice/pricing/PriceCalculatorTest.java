@@ -1,13 +1,14 @@
 package com.example.carservice.pricing;
 
+import com.example.carservice.domain.enumerate.PricingPriority;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.example.carservice.config.AppConstants;
 import com.example.carservice.domain.Car;
 import com.example.carservice.domain.Customer;
-import com.example.carservice.domain.MechanicSpecialization;
-import com.example.carservice.domain.OrderPriority;
+import com.example.carservice.domain.enumerate.MechanicSpecialization;
+import com.example.carservice.domain.enumerate.OrderPriority;
 import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.domain.ServiceWork;
 import com.example.carservice.pricing.PricingRule;
@@ -15,6 +16,7 @@ import com.example.carservice.pricing.rule.PercentageDiscountRule;
 import com.example.carservice.pricing.rule.UrgentSurchargeRule;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,16 +24,16 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 class PriceCalculatorTest {
-    private String id = "order-pricing";
-    private String vin = "VIN-PRICING";
-    private String description = "Pricing work";
+    private static final UUID ID = UUID.randomUUID();
+    private static final String VIN = "VIN-PRICING";
+    private static final String DESCRIPTION = "Pricing work";
     private RepairOrder order;
 
     @BeforeEach
     void setUp() {
-        Customer customer = new Customer("customer-pricing", "Pricing Customer", "555-0100");
-        Car car = new Car(vin, "Test", "Model", 2020, customer);
-        order = new RepairOrder(id, car);
+        Customer customer = new Customer(UUID.randomUUID(), "Pricing Customer", "555-0100");
+        Car car = new Car(VIN, "Test", "Model", 2020, customer);
+        order = new RepairOrder(ID, car);
     }
 
     @Test
@@ -110,7 +112,7 @@ class PriceCalculatorTest {
                 () -> new PriceCalculator(List.of(), minimumPrice));
 
         // Then
-        assertEquals(PricingMessages.negativeMinimumPrice, exception.getMessage());
+        assertEquals(PricingMessages.NEGATIVE_MINIMUM_PRICE, exception.getMessage());
     }
 
     @ParameterizedTest(name = "parts {0}, labor {1}, then parts {2}, labor {3} gives {4}")
@@ -159,7 +161,7 @@ class PriceCalculatorTest {
         order.changePriority(OrderPriority.URGENT);
         PriceCalculator calculator =
                 new PriceCalculator(
-                        List.of(new UrgentSurchargeRule(AppConstants.urgentLaborSurchargeFactor)),
+                        List.of(new UrgentSurchargeRule(AppConstants.URGENT_LABOR_SURCHARGE_FACTOR)),
                         BigDecimal.ZERO);
 
         // When
@@ -204,14 +206,14 @@ class PriceCalculatorTest {
 
     private void addWork(String parts, String labor) {
         order.addWork(new ServiceWork(
-                description,
+                DESCRIPTION,
                 new BigDecimal(parts),
                 new BigDecimal(labor),
                 MechanicSpecialization.GENERAL));
     }
 
     private class TaxRule implements PricingRule {
-        private BigDecimal taxRate = new BigDecimal("0.10");
+        private static final BigDecimal TAX_RATE = new BigDecimal("0.10");
 
         @Override
         public int getPriority() {
@@ -220,35 +222,35 @@ class PriceCalculatorTest {
 
         @Override
         public BigDecimal apply(PricingContext context, BigDecimal currentTotal) {
-            return currentTotal.add(currentTotal.multiply(taxRate));
+            return currentTotal.add(currentTotal.multiply(TAX_RATE));
         }
     }
 
     private class MultiplyRule implements PricingRule {
-        private BigDecimal multiplier = new BigDecimal("2");
+        private static final BigDecimal MULTIPLIER = new BigDecimal("2");
 
         @Override
         public int getPriority() {
-            return PricingRule.SURCHARGE_PRIORITY;
+            return PricingPriority.SURCHARGE.getValue();
         }
 
         @Override
         public BigDecimal apply(PricingContext context, BigDecimal currentTotal) {
-            return currentTotal.multiply(multiplier);
+            return currentTotal.multiply(MULTIPLIER);
         }
     }
 
     private class AddAmountRule implements PricingRule {
-        private BigDecimal amount = BigDecimal.ONE;
+        private static final BigDecimal AMOUNT = BigDecimal.ONE;
 
         @Override
         public int getPriority() {
-            return PricingRule.SURCHARGE_PRIORITY;
+            return PricingPriority.SURCHARGE.getValue();
         }
 
         @Override
         public BigDecimal apply(PricingContext context, BigDecimal currentTotal) {
-            return currentTotal.add(amount);
+            return currentTotal.add(AMOUNT);
         }
     }
 }

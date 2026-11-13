@@ -1,5 +1,6 @@
 package com.example.carservice.pricing;
 
+import com.example.carservice.domain.enumerate.PricingPriority;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -14,18 +15,18 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class PricingRuleEngineTest {
-    private static BigDecimal sampleLaborTotal = new BigDecimal("50.00");
-    private static BigDecimal samplePartsTotal = new BigDecimal("100.00");
-    private static BigDecimal negativeTotal = new BigDecimal("-0.01");
-    private static BigDecimal standaloneDiscountPercent = new BigDecimal("10");
-    private static BigDecimal standaloneExpectedPrice = new BigDecimal("135.00");
-    private static int sampleCarYear = 2020;
+    private static final BigDecimal SAMPLE_LABOR_TOTAL = new BigDecimal("50.00");
+    private static final BigDecimal SAMPLE_PARTS_TOTAL = new BigDecimal("100.00");
+    private static final BigDecimal NEGATIVE_TOTAL = new BigDecimal("-0.01");
+    private static final BigDecimal STANDALONE_DISCOUNT_PERCENT = new BigDecimal("10");
+    private static final BigDecimal STANDALONE_EXPECTED_PRICE = new BigDecimal("135.00");
+    private static final int SAMPLE_CAR_YEAR = 2020;
 
     private PricingContext context;
 
     @BeforeEach
     void setUp() {
-        context = new PricingContext(sampleLaborTotal, samplePartsTotal, false, sampleCarYear);
+        context = new PricingContext(SAMPLE_LABOR_TOTAL, SAMPLE_PARTS_TOTAL, false, SAMPLE_CAR_YEAR);
     }
 
     @Test
@@ -33,16 +34,16 @@ class PricingRuleEngineTest {
     void runsWithoutRepairOrder() {
         // Given
         PricingContext standaloneContext =
-                new PricingContext(sampleLaborTotal, samplePartsTotal, false, sampleCarYear);
+                new PricingContext(SAMPLE_LABOR_TOTAL, SAMPLE_PARTS_TOTAL, false, SAMPLE_CAR_YEAR);
         PricingRuleEngine engine = new PricingRuleEngine(
-                List.of(new PercentageDiscountRule(standaloneDiscountPercent)),
+                List.of(new PercentageDiscountRule(STANDALONE_DISCOUNT_PERCENT)),
                 BigDecimal.ZERO);
 
         // When
         BigDecimal result = engine.calculateFinalPrice(standaloneContext);
 
         // Then
-        assertEquals(standaloneExpectedPrice, result);
+        assertEquals(STANDALONE_EXPECTED_PRICE, result);
     }
 
     @Test
@@ -57,7 +58,7 @@ class PricingRuleEngineTest {
         // Then
         PricingException exception =
                 assertThrows(PricingException.class, calculate::run);
-        assertEquals(PricingMessages.pricingContextRequired, exception.getMessage());
+        assertEquals(PricingMessages.PRICING_CONTEXT_REQUIRED, exception.getMessage());
     }
 
     @Test
@@ -72,7 +73,7 @@ class PricingRuleEngineTest {
         // Then
         PricingException exception =
                 assertThrows(PricingException.class, createEngine::run);
-        assertEquals(PricingMessages.pricingRulesRequired, exception.getMessage());
+        assertEquals(PricingMessages.PRICING_RULES_REQUIRED, exception.getMessage());
     }
 
     @Test
@@ -88,7 +89,7 @@ class PricingRuleEngineTest {
         // Then
         PricingException exception =
                 assertThrows(PricingException.class, createEngine::run);
-        assertEquals(PricingMessages.pricingRuleRequired, exception.getMessage());
+        assertEquals(PricingMessages.PRICING_RULE_REQUIRED, exception.getMessage());
     }
 
     @Test
@@ -103,7 +104,7 @@ class PricingRuleEngineTest {
         // Then
         PricingException exception =
                 assertThrows(PricingException.class, createEngine::run);
-        assertEquals(PricingMessages.negativeMinimumPrice, exception.getMessage());
+        assertEquals(PricingMessages.NEGATIVE_MINIMUM_PRICE, exception.getMessage());
     }
 
     @Test
@@ -118,7 +119,7 @@ class PricingRuleEngineTest {
         // Then
         PricingException exception =
                 assertThrows(PricingException.class, createEngine::run);
-        assertEquals(PricingMessages.minimumPriceRequired, exception.getMessage());
+        assertEquals(PricingMessages.MINIMUM_PRICE_REQUIRED, exception.getMessage());
     }
 
     @Test
@@ -134,7 +135,7 @@ class PricingRuleEngineTest {
         // Then
         PricingException exception =
                 assertThrows(PricingException.class, calculate::run);
-        assertEquals(PricingMessages.pricingRuleResultRequired, exception.getMessage());
+        assertEquals(PricingMessages.PRICING_RULE_RESULT_REQUIRED, exception.getMessage());
     }
 
     @Test
@@ -142,11 +143,11 @@ class PricingRuleEngineTest {
     void rejectsNullLaborTotal() {
         // When
         Runnable createContext = () ->
-                new PricingContext(null, BigDecimal.ZERO, false, sampleCarYear);
+                new PricingContext(null, BigDecimal.ZERO, false, SAMPLE_CAR_YEAR);
 
         // Then
         PricingException exception = assertThrows(PricingException.class, createContext::run);
-        assertEquals(PricingMessages.laborTotalRequired, exception.getMessage());
+        assertEquals(PricingMessages.LABOR_TOTAL_REQUIRED, exception.getMessage());
     }
 
     @Test
@@ -154,11 +155,11 @@ class PricingRuleEngineTest {
     void rejectsNullPartsTotal() {
         // When
         Runnable createContext = () ->
-                new PricingContext(BigDecimal.ZERO, null, false, sampleCarYear);
+                new PricingContext(BigDecimal.ZERO, null, false, SAMPLE_CAR_YEAR);
 
         // Then
         PricingException exception = assertThrows(PricingException.class, createContext::run);
-        assertEquals(PricingMessages.partsTotalRequired, exception.getMessage());
+        assertEquals(PricingMessages.PARTS_TOTAL_REQUIRED, exception.getMessage());
     }
 
     @Test
@@ -166,11 +167,11 @@ class PricingRuleEngineTest {
     void rejectsNegativeLaborTotal() {
         // When
         Runnable createContext = () ->
-                new PricingContext(negativeTotal, BigDecimal.ZERO, false, sampleCarYear);
+                new PricingContext(NEGATIVE_TOTAL, BigDecimal.ZERO, false, SAMPLE_CAR_YEAR);
 
         // Then
         PricingException exception = assertThrows(PricingException.class, createContext::run);
-        assertEquals(PricingMessages.negativeLaborTotal, exception.getMessage());
+        assertEquals(PricingMessages.NEGATIVE_LABOR_TOTAL, exception.getMessage());
     }
 
     @Test
@@ -178,11 +179,11 @@ class PricingRuleEngineTest {
     void rejectsNegativePartsTotal() {
         // When
         Runnable createContext = () ->
-                new PricingContext(BigDecimal.ZERO, negativeTotal, false, sampleCarYear);
+                new PricingContext(BigDecimal.ZERO, NEGATIVE_TOTAL, false, SAMPLE_CAR_YEAR);
 
         // Then
         PricingException exception = assertThrows(PricingException.class, createContext::run);
-        assertEquals(PricingMessages.negativePartsTotal, exception.getMessage());
+        assertEquals(PricingMessages.NEGATIVE_PARTS_TOTAL, exception.getMessage());
     }
 
     @Test
@@ -308,7 +309,7 @@ class PricingRuleEngineTest {
     private class NullResultRule implements PricingRule {
         @Override
         public int getPriority() {
-            return PricingRule.SURCHARGE_PRIORITY;
+            return PricingPriority.SURCHARGE.getValue();
         }
 
         @Override
@@ -320,7 +321,7 @@ class PricingRuleEngineTest {
     private class AddOneRule implements PricingRule {
         @Override
         public int getPriority() {
-            return PricingRule.SURCHARGE_PRIORITY;
+            return PricingPriority.SURCHARGE.getValue();
         }
 
         @Override
@@ -338,7 +339,7 @@ class PricingRuleEngineTest {
 
         @Override
         public int getPriority() {
-            return PricingRule.SURCHARGE_PRIORITY;
+            return PricingPriority.SURCHARGE.getValue();
         }
 
         @Override
@@ -356,7 +357,7 @@ class PricingRuleEngineTest {
 
         @Override
         public int getPriority() {
-            return PricingRule.DISCOUNT_PRIORITY;
+            return PricingPriority.DISCOUNT.getValue();
         }
 
         @Override

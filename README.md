@@ -25,20 +25,23 @@ mvn spring-boot:run
 
 Run `mvn spring-boot:run` three times, waiting for each run to finish:
 
-1. The first run registers the demo data, creates `order-complete`, and leaves it at `IN_PROGRESS`.
-   It prints a message asking you to run the application again.
-2. The second run prints `order-complete loaded from database`, shows the stored mechanic and
-   works, completes pending work, and prints the final price, `COMPLETED` status, and completion
-   time.
-3. The third run prints `order-complete loaded from database` and displays the persisted completed
-   details without modifying the order.
+1. The first run registers the demo customer, car, and mechanic, creates the order with its fixed
+   UUID, leaves it at `IN_PROGRESS`, and prints its details and a restart message.
+2. The second run prints the fixed order UUID with `loaded from database`, shows the stored
+   mechanic and works, completes pending work, and prints the final price, `COMPLETED` status, and
+   completion time.
+3. The third run prints the fixed order UUID with `loaded from database` and displays the persisted
+   completed details without modifying the order.
+
+Every run also prints pricing demonstrations for normal and urgent pricing, discount-rule order,
+a custom surcharge, and an old-car discount.
 
 The application connects to `jdbc:postgresql://localhost:5432/carservice` with username `carservice`
 and password `carservice`; these are local development credentials defined in `docker-compose.yml`
 and `src/main/resources/application.yml`. `DB_URL` and `DB_USERNAME` can override the URL and
 username through environment variables. The password is not configurable through the environment.
 Stop PostgreSQL when finished with `docker compose down`; the named volume preserves its data. To
-repeat the lifecycle from a clean database, run
+recreate an existing local database after these migration changes, run
 `docker compose down -v && docker compose up -d`.
 
 ## Tests
@@ -55,8 +58,10 @@ Run the full suite, including PostgreSQL integration tests (Docker required):
 mvn clean verify
 ```
 
-Testcontainers starts PostgreSQL for integration tests. Integration tests are intentionally not
-wrapped in test-managed transactions, so service transaction commits and rollbacks are exercised.
+The integration-test Spring configuration starts PostgreSQL through a `@ServiceConnection` bean.
+`IntegrationTest` runs `src/test/resources/sql/cleanup.sql` before each test. Integration tests are
+not wrapped in test-managed transactions, so service transaction commits, rollbacks, and concurrent
+updates are exercised.
 If Testcontainers cannot find a Docker environment on a newer Docker Engine, check the daemon's
 minimum API version with `docker version` and create `~/.docker-java.properties` containing
 `api.version=1.44` (use the daemon's minimum API version if it is higher).
@@ -69,18 +74,22 @@ src/
 │   ├── app/          # Spring CommandLineRunner and demo pricing rules
 │   ├── config/       # Application constants and pricing/clock beans
 │   ├── domain/       # JPA-mapped domain objects and business rules
+│   │   └── enumerate/ # Domain and pricing enums
 │   ├── exception/    # Domain and application exceptions/messages
 │   ├── pricing/      # Pricing policy, engine, contexts, and rules
-│   ├── repository/   # Spring Data repository interfaces and memory adapters
+│   ├── repository/   # Spring Data repository interfaces
 │   └── service/      # Registration, repair-order, and gift services
 ├── main/resources/
 │   └── db/migration/ # Flyway SQL migrations
-└── test/java/com/example/carservice/
-    ├── domain/       # Domain invariant tests
-    ├── integration/  # PostgreSQL/Testcontainers integration tests
-    ├── pricing/      # Pricing tests
-    ├── repository/   # In-memory repository tests
-    └── service/      # Service unit tests
+├── test/java/com/example/carservice/
+│   ├── domain/       # Domain invariant tests
+│   ├── integration/  # PostgreSQL/Testcontainers integration tests and configuration
+│   ├── pricing/      # Pricing tests
+│   ├── repository/   # Repository tests
+│   └── service/      # Service unit tests
+└── test/resources/
+    └── sql/
+        └── cleanup.sql  # Integration-test database cleanup
 ```
 
 ## Architecture
@@ -97,26 +106,26 @@ src/
 - **Repositories:** `CustomerRepository`, `CarRepository`, `MechanicRepository`, and
   `RepairOrderRepository` are Spring Data repository interfaces. Missing lookups return
   `Optional.empty()`. `RepairOrderRepository` uses `@EntityGraph` and fetch-join queries for
-  relationships needed outside a transaction. The `repository.memory` implementations remain for
-  unit tests and are not registered as application beans.
+  relationships needed outside a transaction.
 - **Pricing:** `PricingPolicy` is the service-facing abstraction. `PriceCalculator` adapts order
   totals into `PricingContext`; `PricingRuleEngine` orders and applies rules, clamps negative
   results, applies the minimum, and rounds once to two decimals.
 - **Runner:** `CarServiceDemoRunner` is a `CommandLineRunner` active outside the `test` profile. It
-  demonstrates registration, order lifecycle and persistence, pricing, expected error cases, and
-  an optimistic-lock conflict.
+  demonstrates registration, the persisted three-run order lifecycle, and pricing examples.
 
 ## Database schema and migrations
 
 Flyway owns schema changes; Hibernate validates the resulting schema
-(`spring.jpa.hibernate.ddl-auto=validate`). V1 (`V1__init_schema.sql`) creates customers, cars,
+(`spring.jpa.hibernate.ddl-auto=validate`). Existing local databases must be recreated with
+`docker compose down -v && docker compose up -d` because V1-V3 have changed in place. V1
+(`V1__init_schema.sql`) creates customers, cars,
 mechanics, repair orders, and service works, including enum and non-negative-cost checks, foreign
 keys, and indexes. V2 (`V2__add_order_version.sql`) adds the non-null `repair_orders.version`
 column; V3 (`V3__add_mechanic_version.sql`) adds the non-null `mechanics.version` column. The
 `RepairOrder.works` relationship is a unidirectional `@OneToMany` with `@JoinColumn(name = "order_id")`
 and `@OrderColumn(name = "position")` on its owning side. Keeping the order column on the owner
 mapping lets Hibernate write both the foreign key and non-null list position when inserting work
-rows. Do not edit an already-applied migration; add a new versioned migration for future changes.
+rows.
 
 ## Transactions and optimistic locking
 

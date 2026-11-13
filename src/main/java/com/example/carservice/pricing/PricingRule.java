@@ -6,9 +6,6 @@ import java.math.BigDecimal;
  * A pricing operation ordered by priority.
  */
 public interface PricingRule {
-    int SURCHARGE_PRIORITY = 100;
-    int DISCOUNT_PRIORITY = 200;
-
     /** Returns this rule's priority; lower values are applied first. */
     int getPriority();
 

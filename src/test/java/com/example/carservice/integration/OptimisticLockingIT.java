@@ -1,91 +1,75 @@
 package com.example.carservice.integration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.example.carservice.domain.Car;
 import com.example.carservice.domain.Customer;
 import com.example.carservice.domain.Mechanic;
-import com.example.carservice.domain.MechanicSpecialization;
-import com.example.carservice.domain.OrderPriority;
+import com.example.carservice.domain.enumerate.MechanicSpecialization;
+import com.example.carservice.domain.enumerate.OrderPriority;
 import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.domain.ServiceWork;
 import com.example.carservice.repository.MechanicRepository;
 import com.example.carservice.repository.RepairOrderRepository;
 import com.example.carservice.service.RegistrationService;
 import com.example.carservice.service.RepairOrderService;
-import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-class OptimisticLockingIT extends PostgresIntegrationTest {
-    private static String customerId = "optimistic-customer";
-    private static String customerName = "Optimistic Test Customer";
-    private static String customerPhone = "555-0200";
-    private static String carVin = "OPTIMISTIC-VIN";
-    private static String orderId = "optimistic-order";
-    private static String firstAssignmentOrderId = "mechanic-assignment-order-one";
-    private static String secondAssignmentOrderId = "mechanic-assignment-order-two";
-    private static String mechanicId = "optimistic-shared-mechanic";
-    private static String mechanicName = "Shared Assignment Mechanic";
-    private static String workDescription = "Concurrent assignment work";
-    private static String orderPriorityQuery = "SELECT priority FROM repair_orders WHERE id = ?";
-    private static String orderVersionQuery = "SELECT version FROM repair_orders WHERE id = ?";
-    private static String mechanicBusyQuery = "SELECT busy FROM mechanics WHERE id = ?";
-    private static String mechanicVersionQuery = "SELECT version FROM mechanics WHERE id = ?";
-    private static String assignedOrderCountQuery =
-            "SELECT COUNT(*) FROM repair_orders WHERE mechanic_id = ?";
-    private static String staleWriterThreadName = "optimistic-stale-writer";
-    private static String firstAssignmentThreadName = "mechanic-assignment-writer-one";
-    private static String secondAssignmentThreadName = "mechanic-assignment-writer-two";
-    private static String missingOrderMessage = "Optimistic-locking test order was not found.";
-    private static String latchTimeoutMessage = "Timed out waiting for the competing transaction.";
-    private static String staleWriterNoFailureMessage = "No exception was thrown by the stale writer.";
-    private static String exceptionMessageSeparator = ": ";
-    private static long coordinationTimeoutSeconds = 10;
-    private static long threadJoinTimeoutMillis = 10000;
-    private static long initialVersion = 0;
-    private static long expectedVersionAfterFirstCommit = 1;
-    private static long expectedVersionAfterRetry = 2;
-    private static long expectedMechanicVersion = 1;
-    private static int competingTransactionCount = 2;
-    private static int expectedCommittedAssignmentCount = 1;
-    private static int expectedFailedAssignmentCount = 1;
-    private static int carYear = 2024;
-    private static BigDecimal workCost = BigDecimal.ZERO;
+class OptimisticLockingIT extends IntegrationTest {
+    private static final UUID CUSTOMER_ID = UUID.randomUUID();
+    private static final String CUSTOMER_NAME = "Optimistic Test Customer";
+    private static final String CUSTOMER_PHONE = "555-0200";
+    private static final String CAR_VIN = "OPTIMISTIC-VIN";
+    private static final UUID ORDER_ID = UUID.randomUUID();
+    private static final UUID FIRST_ASSIGNMENT_ORDER_ID = UUID.randomUUID();
+    private static final UUID SECOND_ASSIGNMENT_ORDER_ID = UUID.randomUUID();
+    private static final UUID MECHANIC_ID = UUID.randomUUID();
+    private static final String MECHANIC_NAME = "Shared Assignment Mechanic";
+    private static final String WORK_DESCRIPTION = "Concurrent assignment work";
+    private static final String MISSING_ORDER_MESSAGE = "Optimistic-locking test order was not found.";
+    private static final String LATCH_TIMEOUT_MESSAGE = "Timed out waiting for the competing transaction.";
+    private static final String STALE_WRITER_NO_FAILURE_MESSAGE = "No exception was thrown by the stale writer.";
+    private static final String EXCEPTION_MESSAGE_SEPARATOR = ": ";
+    private static final long COORDINATION_TIMEOUT_SECONDS = 10;
+    private static final long INITIAL_VERSION = 0;
+    private static final long EXPECTED_VERSION_AFTER_FIRST_COMMIT = 1;
+    private static final long EXPECTED_VERSION_AFTER_RETRY = 2;
+    private static final long EXPECTED_MECHANIC_VERSION = 1;
+    private static final int COMPETING_TRANSACTION_COUNT = 2;
+    private static final int EXPECTED_COMMITTED_ASSIGNMENT_COUNT = 1;
+    private static final int EXPECTED_FAILED_ASSIGNMENT_COUNT = 1;
+    private static final int CAR_YEAR = 2024;
+    private static final BigDecimal WORK_COST = BigDecimal.ZERO;
 
     private RegistrationService registrationService;
     private RepairOrderService repairOrderService;
     private RepairOrderRepository repairOrderRepository;
     private MechanicRepository mechanicRepository;
-    private JdbcTemplate jdbcTemplate;
     private TransactionTemplate transactionTemplate;
-    private EntityManager entityManager;
 
     @Autowired
     OptimisticLockingIT(
-            JdbcTemplate jdbcTemplate,
-            EntityManager entityManager,
             RegistrationService registrationService,
             RepairOrderService repairOrderService,
             RepairOrderRepository repairOrderRepository,
             MechanicRepository mechanicRepository,
             PlatformTransactionManager transactionManager) {
-        super(jdbcTemplate, entityManager);
-        this.jdbcTemplate = jdbcTemplate;
-        this.entityManager = entityManager;
         this.registrationService = registrationService;
         this.repairOrderService = repairOrderService;
         this.repairOrderRepository = repairOrderRepository;
@@ -95,50 +79,52 @@ class OptimisticLockingIT extends PostgresIntegrationTest {
 
     @Test
     @DisplayName("Detects a stale concurrent update and preserves the first commit")
-    void rejectsStaleConcurrentUpdate() throws InterruptedException {
+    void rejectsStaleConcurrentUpdate() {
         // Given
         createOrder();
-        assertEquals(
-                initialVersion,
-                jdbcTemplate.queryForObject(orderVersionQuery, Long.class, orderId));
+        ExecutorService executor = Executors.newFixedThreadPool(COMPETING_TRANSACTION_COUNT);
+        try {
+            assertEquals(INITIAL_VERSION, repairOrderRepository.findById(ORDER_ID).orElseThrow().getVersion());
 
-        // When
-        RuntimeException failure = runCompetingPriorityChanges();
+            // When
+            RuntimeException failure = runCompetingPriorityChanges(executor);
 
-        // Then
-        assertTrue(
-                failure instanceof ObjectOptimisticLockingFailureException,
-                describeFailure(failure));
-        assertEquals(
-                OrderPriority.URGENT.name(),
-                jdbcTemplate.queryForObject(orderPriorityQuery, String.class, orderId));
-        assertEquals(
-                expectedVersionAfterFirstCommit,
-                jdbcTemplate.queryForObject(orderVersionQuery, Long.class, orderId));
+            // Then
+            assertTrue(
+                    failure instanceof ObjectOptimisticLockingFailureException,
+                    describeFailure(failure));
+            RepairOrder persistedOrder = repairOrderRepository.findById(ORDER_ID).orElseThrow();
+            assertEquals(OrderPriority.URGENT, persistedOrder.getPriority());
+            assertEquals(EXPECTED_VERSION_AFTER_FIRST_COMMIT, persistedOrder.getVersion());
+        } finally {
+            shutdownExecutor(executor);
+        }
     }
 
     @Test
     @DisplayName("Succeeds when the conflicting update is retried after reloading")
-    void retriesStaleUpdateAfterReload() throws InterruptedException {
+    void retriesStaleUpdateAfterReload() {
         // Given
         createOrder();
-        RuntimeException conflict = runCompetingPriorityChanges();
-        assertTrue(
-                conflict instanceof ObjectOptimisticLockingFailureException,
-                describeFailure(conflict));
+        ExecutorService executor = Executors.newFixedThreadPool(COMPETING_TRANSACTION_COUNT);
+        try {
+            RuntimeException conflict = runCompetingPriorityChanges(executor);
+            assertTrue(
+                    conflict instanceof ObjectOptimisticLockingFailureException,
+                    describeFailure(conflict));
 
-        // When
-        RepairOrder reloadedOrder = repairOrderService.getOrder(orderId);
-        assertNotNull(reloadedOrder.getVersion());
-        repairOrderService.changePriority(orderId, OrderPriority.NORMAL);
+            // When
+            RepairOrder reloadedOrder = repairOrderService.findOrder(ORDER_ID).orElseThrow();
+            assertNotNull(reloadedOrder.getVersion());
+            repairOrderService.changePriority(ORDER_ID, OrderPriority.NORMAL);
 
-        // Then
-        assertEquals(
-                OrderPriority.NORMAL.name(),
-                jdbcTemplate.queryForObject(orderPriorityQuery, String.class, orderId));
-        assertEquals(
-                expectedVersionAfterRetry,
-                jdbcTemplate.queryForObject(orderVersionQuery, Long.class, orderId));
+            // Then
+            RepairOrder persistedOrder = repairOrderRepository.findById(ORDER_ID).orElseThrow();
+            assertEquals(OrderPriority.NORMAL, persistedOrder.getPriority());
+            assertEquals(EXPECTED_VERSION_AFTER_RETRY, persistedOrder.getVersion());
+        } finally {
+            shutdownExecutor(executor);
+        }
     }
 
     @Test
@@ -147,174 +133,175 @@ class OptimisticLockingIT extends PostgresIntegrationTest {
         // Given
         createOrder();
         registrationService.registerMechanic(new Mechanic(
-                mechanicId,
-                mechanicName,
+                MECHANIC_ID,
+                MECHANIC_NAME,
                 MechanicSpecialization.GENERAL));
-        createApprovedOrder(firstAssignmentOrderId);
-        createApprovedOrder(secondAssignmentOrderId);
-        CountDownLatch mechanicReadsComplete = new CountDownLatch(competingTransactionCount);
+        createApprovedOrder(FIRST_ASSIGNMENT_ORDER_ID);
+        createApprovedOrder(SECOND_ASSIGNMENT_ORDER_ID);
+        ExecutorService executor = Executors.newFixedThreadPool(COMPETING_TRANSACTION_COUNT);
+        CountDownLatch mechanicReadsComplete = new CountDownLatch(COMPETING_TRANSACTION_COUNT);
         CountDownLatch assignmentsStart = new CountDownLatch(1);
-        AtomicInteger committedAssignments = new AtomicInteger();
-        AtomicInteger failedAssignments = new AtomicInteger();
-        AtomicReference<RuntimeException> assignmentFailure = new AtomicReference<>();
-        Thread firstWriter = createAssignmentThread(
-                firstAssignmentThreadName,
-                firstAssignmentOrderId,
-                mechanicReadsComplete,
-                assignmentsStart,
-                committedAssignments,
-                failedAssignments,
-                assignmentFailure);
-        Thread secondWriter = createAssignmentThread(
-                secondAssignmentThreadName,
-                secondAssignmentOrderId,
-                mechanicReadsComplete,
-                assignmentsStart,
-                committedAssignments,
-                failedAssignments,
-                assignmentFailure);
+        try {
+            CompletableFuture<RuntimeException> firstAssignment = createAssignmentFuture(
+                    FIRST_ASSIGNMENT_ORDER_ID,
+                    mechanicReadsComplete,
+                    assignmentsStart,
+                    executor);
+            CompletableFuture<RuntimeException> secondAssignment = createAssignmentFuture(
+                    SECOND_ASSIGNMENT_ORDER_ID,
+                    mechanicReadsComplete,
+                    assignmentsStart,
+                    executor);
 
-        // When
-        firstWriter.start();
-        secondWriter.start();
-        await(mechanicReadsComplete);
-        assignmentsStart.countDown();
-        join(firstWriter);
-        join(secondWriter);
+            // When
+            await(mechanicReadsComplete);
+            assignmentsStart.countDown();
+            RuntimeException firstFailure = awaitResult(firstAssignment);
+            RuntimeException secondFailure = awaitResult(secondAssignment);
 
-        // Then
-        assertEquals(expectedCommittedAssignmentCount, committedAssignments.get());
-        assertEquals(expectedFailedAssignmentCount, failedAssignments.get());
-        assertTrue(
-                assignmentFailure.get() instanceof ObjectOptimisticLockingFailureException,
-                describeFailure(assignmentFailure.get()));
-        assertTrue(jdbcTemplate.queryForObject(mechanicBusyQuery, Boolean.class, mechanicId));
-        assertEquals(
-                expectedMechanicVersion,
-                jdbcTemplate.queryForObject(mechanicVersionQuery, Long.class, mechanicId));
-        assertEquals(
-                expectedCommittedAssignmentCount,
-                jdbcTemplate.queryForObject(assignedOrderCountQuery, Integer.class, mechanicId));
+            // Then
+            int committedAssignments = (firstFailure == null ? 1 : 0) + (secondFailure == null ? 1 : 0);
+            assertEquals(EXPECTED_COMMITTED_ASSIGNMENT_COUNT, committedAssignments);
+            int failedAssignments = (firstFailure == null ? 0 : 1) + (secondFailure == null ? 0 : 1);
+            assertEquals(EXPECTED_FAILED_ASSIGNMENT_COUNT, failedAssignments);
+            RuntimeException assignmentFailure = firstFailure == null ? secondFailure : firstFailure;
+            assertTrue(
+                    assignmentFailure instanceof ObjectOptimisticLockingFailureException,
+                    describeFailure(assignmentFailure));
+            Mechanic persistedMechanic = mechanicRepository.findById(MECHANIC_ID).orElseThrow();
+            assertTrue(persistedMechanic.isBusy());
+            assertEquals(EXPECTED_MECHANIC_VERSION, persistedMechanic.getVersion());
+            long assignedOrderCount = repairOrderRepository.findAll().stream()
+                    .filter(order -> order.getAssignedMechanic() != null)
+                    .filter(order -> MECHANIC_ID.equals(order.getAssignedMechanic().getId()))
+                    .count();
+            assertEquals(EXPECTED_COMMITTED_ASSIGNMENT_COUNT, assignedOrderCount);
+        } finally {
+            assignmentsStart.countDown();
+            shutdownExecutor(executor);
+        }
     }
 
-    private Thread createAssignmentThread(
-            String threadName,
-            String assignedOrderId,
+    private CompletableFuture<RuntimeException> createAssignmentFuture(
+            UUID assignedOrderId,
             CountDownLatch mechanicReadsComplete,
             CountDownLatch assignmentsStart,
-            AtomicInteger committedAssignments,
-            AtomicInteger failedAssignments,
-            AtomicReference<RuntimeException> assignmentFailure) {
-        return new Thread(() -> {
+            ExecutorService executor) {
+        return CompletableFuture.supplyAsync(() -> {
             try {
                 transactionTemplate.execute(status -> {
                     RepairOrder order = repairOrderService.findOrder(assignedOrderId)
-                            .orElseThrow(() -> new IllegalStateException(missingOrderMessage));
-                    Mechanic mechanic = mechanicRepository.findById(mechanicId)
-                            .orElseThrow(() -> new IllegalStateException(missingOrderMessage));
+                            .orElseThrow(() -> new IllegalStateException(MISSING_ORDER_MESSAGE));
+                    Mechanic mechanic = mechanicRepository.findById(MECHANIC_ID)
+                            .orElseThrow(() -> new IllegalStateException(MISSING_ORDER_MESSAGE));
                     mechanicReadsComplete.countDown();
                     await(assignmentsStart);
                     order.assignMechanic(mechanic);
                     repairOrderRepository.save(order);
                     return null;
                 });
-                committedAssignments.incrementAndGet();
+                return null;
             } catch (RuntimeException exception) {
-                assignmentFailure.compareAndSet(null, exception);
-                failedAssignments.incrementAndGet();
+                return exception;
             }
-        }, threadName);
+        }, executor);
     }
 
-    private void createApprovedOrder(String assignedOrderId) {
-        repairOrderService.createOrder(assignedOrderId, carVin);
+    private void createApprovedOrder(UUID assignedOrderId) {
+        repairOrderService.createOrder(assignedOrderId, CAR_VIN);
         repairOrderService.addWork(
                 assignedOrderId,
                 new ServiceWork(
-                        workDescription,
-                        workCost,
-                        workCost,
+                        WORK_DESCRIPTION,
+                        WORK_COST,
+                        WORK_COST,
                         MechanicSpecialization.GENERAL));
         repairOrderService.diagnose(assignedOrderId);
         repairOrderService.approve(assignedOrderId);
     }
 
-    private void join(Thread thread) {
-        try {
-            thread.join(threadJoinTimeoutMillis);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException(latchTimeoutMessage, exception);
-        }
-        assertFalse(thread.isAlive());
-    }
-
-    private RuntimeException runCompetingPriorityChanges() throws InterruptedException {
+    private RuntimeException runCompetingPriorityChanges(ExecutorService executor) {
         CountDownLatch staleReadComplete = new CountDownLatch(1);
         CountDownLatch firstCommitComplete = new CountDownLatch(1);
-        AtomicReference<RuntimeException> staleTransactionFailure = new AtomicReference<>();
-        Thread staleWriter = new Thread(() -> {
+        CompletableFuture<RuntimeException> staleWriter = CompletableFuture.supplyAsync(() -> {
             try {
                 transactionTemplate.execute(status -> {
-                    RepairOrder staleOrder = repairOrderRepository.findById(orderId)
-                            .orElseThrow(() -> new IllegalStateException(missingOrderMessage));
+                    RepairOrder staleOrder = repairOrderRepository.findById(ORDER_ID)
+                            .orElseThrow(() -> new IllegalStateException(MISSING_ORDER_MESSAGE));
                     staleReadComplete.countDown();
                     await(firstCommitComplete);
                     staleOrder.changePriority(OrderPriority.URGENT);
                     repairOrderRepository.save(staleOrder);
                     return null;
                 });
+                return null;
             } catch (RuntimeException exception) {
-                staleTransactionFailure.set(exception);
+                return exception;
             }
-        }, staleWriterThreadName);
-        staleWriter.start();
-
-        boolean staleReadCompleted =
-                staleReadComplete.await(coordinationTimeoutSeconds, TimeUnit.SECONDS);
-        if (!staleReadCompleted) {
-            firstCommitComplete.countDown();
-            staleWriter.join(threadJoinTimeoutMillis);
-            throw new IllegalStateException(latchTimeoutMessage);
-        }
+        }, executor);
+        await(staleReadComplete);
 
         try {
-            repairOrderService.changePriority(orderId, OrderPriority.URGENT);
+            repairOrderService.changePriority(ORDER_ID, OrderPriority.URGENT);
         } finally {
             firstCommitComplete.countDown();
         }
-        staleWriter.join(threadJoinTimeoutMillis);
-        assertFalse(staleWriter.isAlive());
-        return staleTransactionFailure.get();
+        return awaitResult(staleWriter);
     }
 
     private void await(CountDownLatch latch) {
         try {
-            boolean released = latch.await(coordinationTimeoutSeconds, TimeUnit.SECONDS);
+            boolean released = latch.await(COORDINATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             if (!released) {
-                throw new IllegalStateException(latchTimeoutMessage);
+                throw new IllegalStateException(LATCH_TIMEOUT_MESSAGE);
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException(latchTimeoutMessage, exception);
+            throw new IllegalStateException(LATCH_TIMEOUT_MESSAGE, exception);
         }
     }
 
     private String describeFailure(RuntimeException failure) {
         if (failure == null) {
-            return staleWriterNoFailureMessage;
+            return STALE_WRITER_NO_FAILURE_MESSAGE;
         }
         return failure.getClass().getName()
-                + exceptionMessageSeparator
+                + EXCEPTION_MESSAGE_SEPARATOR
                 + failure.getMessage();
     }
 
+    private <T> T awaitResult(CompletableFuture<T> future) {
+        try {
+            return future.get(COORDINATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(LATCH_TIMEOUT_MESSAGE, exception);
+        } catch (ExecutionException | TimeoutException exception) {
+            throw new IllegalStateException(LATCH_TIMEOUT_MESSAGE, exception);
+        }
+    }
+
+    private void shutdownExecutor(ExecutorService executor) {
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(COORDINATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+                if (!executor.awaitTermination(COORDINATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException(LATCH_TIMEOUT_MESSAGE);
+                }
+            }
+        } catch (InterruptedException exception) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(LATCH_TIMEOUT_MESSAGE, exception);
+        }
+    }
+
     private void createOrder() {
-        Customer customer = new Customer(customerId, customerName, customerPhone);
+        Customer customer = new Customer(CUSTOMER_ID, CUSTOMER_NAME, CUSTOMER_PHONE);
         registrationService.registerCustomer(customer);
-        Car car = new Car(carVin, "Test Make", "Test Model", carYear, customer);
+        Car car = new Car(CAR_VIN, "Test Make", "Test Model", CAR_YEAR, customer);
         registrationService.registerCar(car);
-        repairOrderService.createOrder(orderId, carVin);
-        entityManager.clear();
+        repairOrderService.createOrder(ORDER_ID, CAR_VIN);
     }
 }

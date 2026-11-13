@@ -15,13 +15,13 @@ import com.example.carservice.domain.Car;
 import com.example.carservice.domain.Customer;
 import com.example.carservice.domain.Gift;
 import com.example.carservice.domain.Mechanic;
-import com.example.carservice.domain.MechanicSpecialization;
-import com.example.carservice.domain.OrderPriority;
-import com.example.carservice.domain.OrderStatus;
+import com.example.carservice.domain.enumerate.MechanicSpecialization;
+import com.example.carservice.domain.enumerate.OrderPriority;
+import com.example.carservice.domain.enumerate.OrderStatus;
 import com.example.carservice.domain.Present;
 import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.domain.ServiceWork;
-import com.example.carservice.domain.WorkStatus;
+import com.example.carservice.domain.enumerate.WorkStatus;
 import com.example.carservice.exception.EntityAlreadyExistsException;
 import com.example.carservice.exception.EntityNotFoundException;
 import com.example.carservice.exception.InvalidArgumentException;
@@ -37,16 +37,16 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.BiConsumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -55,16 +55,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class RepairOrderServiceTest {
-    private static Instant fixedInstant = Instant.parse("2026-10-29T12:00:00Z");
-    private static Clock fixedClock = Clock.fixed(fixedInstant, ZoneOffset.UTC);
+    private static final Instant FIXED_INSTANT = Instant.parse("2026-10-29T12:00:00Z");
+    private static final Clock FIXED_CLOCK = Clock.fixed(FIXED_INSTANT, ZoneOffset.UTC);
 
-    private String orderId = "order-test";
-    private String vin = "VIN-TEST";
-    private String mechanicId = "mechanic-test";
-    private String workDescription = "Test repair";
-    private int firstWorkIndex = 0;
-    private BigDecimal workParts = new BigDecimal("10.00");
-    private BigDecimal workLabor = new BigDecimal("5.00");
+    private static final UUID ORDER_ID = UUID.randomUUID();
+    private static final String VIN = "VIN-TEST";
+    private static final UUID MECHANIC_ID = UUID.randomUUID();
+    private static final String WORK_DESCRIPTION = "Test repair";
+    private static final int FIRST_WORK_INDEX = 0;
+    private static final BigDecimal WORK_PARTS = new BigDecimal("10.00");
+    private static final BigDecimal WORK_LABOR = new BigDecimal("5.00");
 
     @Mock
     private RepairOrderRepository repairOrderRepository;
@@ -88,18 +88,18 @@ class RepairOrderServiceTest {
 
     @BeforeEach
     void setUp() {
-        Customer customer = new Customer("customer-test", "Test Customer", "555-0100");
-        Car car = new Car(vin, "Test", "Model", 2020, customer);
-        order = new RepairOrder(orderId, car);
+        Customer customer = new Customer(UUID.randomUUID(), "Test Customer", "555-0100");
+        Car car = new Car(VIN, "Test", "Model", 2020, customer);
+        order = new RepairOrder(ORDER_ID, car);
         work = createWork();
-        mechanic = new Mechanic(mechanicId, "Test Mechanic", MechanicSpecialization.GENERAL);
+        mechanic = new Mechanic(MECHANIC_ID, "Test Mechanic", MechanicSpecialization.GENERAL);
         service = new RepairOrderService(
                 repairOrderRepository,
                 carRepository,
                 mechanicRepository,
                 pricingPolicy,
                 giftPolicy,
-                fixedClock);
+                FIXED_CLOCK);
     }
 
     @ParameterizedTest(name = "allows {0} from {1} to {2}")
@@ -114,12 +114,12 @@ class RepairOrderServiceTest {
     })
     @DisplayName("Allows valid repair order status transitions")
     void allowsValidTransition(
-            OrderOperation operation,
+            String operation,
             OrderStatus initial,
             OrderStatus expected) {
         // Given
         prepareFor(initial, operation);
-        if (operation == OrderOperation.COMPLETE) {
+        if ("COMPLETE".equals(operation)) {
             when(pricingPolicy.calculateFinalPrice(order)).thenReturn(BigDecimal.ZERO);
         }
 
@@ -128,9 +128,9 @@ class RepairOrderServiceTest {
 
         // Then
         assertEquals(expected, order.getStatus());
-        if (operation == OrderOperation.COMPLETE) {
+        if ("COMPLETE".equals(operation)) {
             assertEquals(BigDecimal.ZERO, order.getFinalPrice());
-            assertEquals(fixedInstant, order.getCompletedAt());
+            assertEquals(FIXED_INSTANT, order.getCompletedAt());
         }
         verify(repairOrderRepository).save(order);
     }
@@ -164,7 +164,7 @@ class RepairOrderServiceTest {
             "CHANGE_PRIORITY,CANCELLED"
     })
     @DisplayName("Rejects forbidden repair order status transitions")
-    void rejectsForbiddenTransition(OrderOperation operation, OrderStatus initial) {
+    void rejectsForbiddenTransition(String operation, OrderStatus initial) {
         // Given
         prepareFor(initial, operation);
 
@@ -172,12 +172,12 @@ class RepairOrderServiceTest {
         Runnable forbiddenOperation = () -> perform(operation);
 
         // Then
-        if (operation == OrderOperation.CHANGE_PRIORITY) {
+        if ("CHANGE_PRIORITY".equals(operation)) {
             assertThrows(OrderModificationNotAllowedException.class, forbiddenOperation::run);
         } else {
             assertThrows(InvalidStateTransitionException.class, forbiddenOperation::run);
         }
-        if (operation == OrderOperation.COMPLETE) {
+        if ("COMPLETE".equals(operation)) {
             verify(pricingPolicy, never()).calculateFinalPrice(any());
         }
     }
@@ -194,7 +194,7 @@ class RepairOrderServiceTest {
         order.startProgress();
 
         // When
-        Runnable completeOrder = () -> service.complete(orderId);
+        Runnable completeOrder = () -> service.complete(ORDER_ID);
 
         // Then
         assertThrows(InvalidStateTransitionException.class, completeOrder::run);
@@ -211,11 +211,11 @@ class RepairOrderServiceTest {
         order.approve();
         order.assignMechanic(mechanic);
         order.startProgress();
-        order.completeWork(firstWorkIndex);
+        order.completeWork(FIRST_WORK_INDEX);
         when(pricingPolicy.calculateFinalPrice(order)).thenThrow(new IllegalStateException());
 
         // When
-        Runnable completeOrder = () -> service.complete(orderId);
+        Runnable completeOrder = () -> service.complete(ORDER_ID);
 
         // Then
         assertThrows(IllegalStateException.class, completeOrder::run);
@@ -238,7 +238,7 @@ class RepairOrderServiceTest {
         when(repairOrderRepository.save(order)).thenReturn(order);
 
         // When
-        RepairOrder result = service.addWorks(orderId, works);
+        RepairOrder result = service.addWorks(ORDER_ID, works);
 
         // Then
         assertSame(order, result);
@@ -252,7 +252,7 @@ class RepairOrderServiceTest {
         // Given
         stubExistingOrder();
         order.assignMechanic(new Mechanic(
-                mechanicId,
+                MECHANIC_ID,
                 "Engine Mechanic",
                 MechanicSpecialization.ENGINE));
         ServiceWork incompatibleWork = new ServiceWork(
@@ -263,7 +263,7 @@ class RepairOrderServiceTest {
         List<ServiceWork> works = List.of(work, incompatibleWork);
 
         // When
-        Runnable addInvalidBatch = () -> service.addWorks(orderId, works);
+        Runnable addInvalidBatch = () -> service.addWorks(ORDER_ID, works);
 
         // Then
         assertThrows(MechanicNotCompatibleException.class, addInvalidBatch::run);
@@ -278,8 +278,8 @@ class RepairOrderServiceTest {
         List<ServiceWork> emptyWorks = List.of();
 
         // When
-        Runnable addNullBatch = () -> service.addWorks(orderId, nullWorks);
-        Runnable addEmptyBatch = () -> service.addWorks(orderId, emptyWorks);
+        Runnable addNullBatch = () -> service.addWorks(ORDER_ID, nullWorks);
+        Runnable addEmptyBatch = () -> service.addWorks(ORDER_ID, emptyWorks);
 
         // Then
         assertThrows(InvalidArgumentException.class, addNullBatch::run);
@@ -288,16 +288,32 @@ class RepairOrderServiceTest {
     }
 
     @ParameterizedTest
-    @EnumSource(NullOrderIdentifierOperation.class)
+    @ValueSource(strings = {
+            "CREATE_ORDER",
+            "FIND_ORDER",
+            "ADD_WORK",
+            "ADD_WORKS",
+            "CHANGE_PRIORITY",
+            "DIAGNOSE",
+            "APPROVE",
+            "ASSIGN_MECHANIC",
+            "START_PROGRESS",
+            "COMPLETE_WORK",
+            "COMPLETE",
+            "CANCEL",
+            "CALCULATE_BASE_PRICE",
+            "CALCULATE_FINAL_PRICE",
+            "CREATE_PRESENT"
+    })
     @DisplayName("Rejects null order identifiers before repository access")
-    void rejectsNullOrderIdentifiers(NullOrderIdentifierOperation operation) {
+    void rejectsNullOrderIdentifiers(String operation) {
         // When
         InvalidArgumentException exception = assertThrows(
                 InvalidArgumentException.class,
                 () -> performWithNullOrderIdentifier(operation));
 
         // Then
-        assertEquals(ServiceMessages.serviceIdentifierRequired, exception.getMessage());
+        assertEquals(ServiceMessages.SERVICE_IDENTIFIER_REQUIRED, exception.getMessage());
         verifyNoInteractions(repairOrderRepository, carRepository, mechanicRepository);
     }
 
@@ -306,9 +322,9 @@ class RepairOrderServiceTest {
     void rejectsNullVinBeforeRepositoryAccess() {
         InvalidArgumentException exception = assertThrows(
                 InvalidArgumentException.class,
-                () -> service.createOrder(orderId, null));
+                () -> service.createOrder(ORDER_ID, null));
 
-        assertEquals(ServiceMessages.serviceIdentifierRequired, exception.getMessage());
+        assertEquals(ServiceMessages.SERVICE_IDENTIFIER_REQUIRED, exception.getMessage());
         verifyNoInteractions(repairOrderRepository, carRepository, mechanicRepository);
     }
 
@@ -317,9 +333,9 @@ class RepairOrderServiceTest {
     void rejectsNullMechanicIdentifierBeforeRepositoryAccess() {
         InvalidArgumentException exception = assertThrows(
                 InvalidArgumentException.class,
-                () -> service.assignMechanic(orderId, null));
+                () -> service.assignMechanic(ORDER_ID, null));
 
-        assertEquals(ServiceMessages.serviceIdentifierRequired, exception.getMessage());
+        assertEquals(ServiceMessages.SERVICE_IDENTIFIER_REQUIRED, exception.getMessage());
         verifyNoInteractions(repairOrderRepository, carRepository, mechanicRepository);
     }
 
@@ -328,9 +344,9 @@ class RepairOrderServiceTest {
     void rejectsNullPriorityBeforeRepositoryAccess() {
         InvalidArgumentException exception = assertThrows(
                 InvalidArgumentException.class,
-                () -> service.changePriority(orderId, null));
+                () -> service.changePriority(ORDER_ID, null));
 
-        assertEquals(ServiceMessages.servicePriorityRequired, exception.getMessage());
+        assertEquals(ServiceMessages.SERVICE_PRIORITY_REQUIRED, exception.getMessage());
         verifyNoInteractions(repairOrderRepository, carRepository, mechanicRepository);
     }
 
@@ -341,7 +357,7 @@ class RepairOrderServiceTest {
                 InvalidArgumentException.class,
                 () -> service.findByStatus(null));
 
-        assertEquals(ServiceMessages.serviceStatusRequired, exception.getMessage());
+        assertEquals(ServiceMessages.SERVICE_STATUS_REQUIRED, exception.getMessage());
         verifyNoInteractions(repairOrderRepository, carRepository, mechanicRepository);
     }
 
@@ -350,9 +366,9 @@ class RepairOrderServiceTest {
     void rejectsNullWorkBeforeRepositoryAccess() {
         InvalidArgumentException exception = assertThrows(
                 InvalidArgumentException.class,
-                () -> service.addWork(orderId, null));
+                () -> service.addWork(ORDER_ID, null));
 
-        assertEquals(ServiceMessages.entityRequired, exception.getMessage());
+        assertEquals(ServiceMessages.ENTITY_REQUIRED, exception.getMessage());
         verifyNoInteractions(repairOrderRepository, carRepository, mechanicRepository);
     }
 
@@ -361,7 +377,7 @@ class RepairOrderServiceTest {
     void rejectsDuplicateOrderId() {
         // Given
         stubExistingOrder();
-        Runnable createDuplicate = () -> service.createOrder(orderId, vin);
+        Runnable createDuplicate = () -> service.createOrder(ORDER_ID, VIN);
 
         // When
         EntityAlreadyExistsException exception =
@@ -369,7 +385,7 @@ class RepairOrderServiceTest {
 
         // Then
         assertEquals(
-                String.format(ServiceMessages.duplicateRepairOrder, orderId),
+                String.format(ServiceMessages.DUPLICATE_REPAIR_ORDER, ORDER_ID),
                 exception.getMessage());
         verify(repairOrderRepository, never()).save(any());
     }
@@ -379,32 +395,32 @@ class RepairOrderServiceTest {
     void findsOrder() {
         stubExistingOrder();
 
-        assertEquals(Optional.of(order), service.findOrder(orderId));
-        verify(repairOrderRepository).findById(orderId);
+        assertEquals(Optional.of(order), service.findOrder(ORDER_ID));
+        verify(repairOrderRepository).findById(ORDER_ID);
     }
 
     @Test
     @DisplayName("Returns empty when an order is missing")
     void returnsEmptyForMissingOrder() {
-        when(repairOrderRepository.findById(orderId)).thenReturn(Optional.empty());
+        when(repairOrderRepository.findById(ORDER_ID)).thenReturn(Optional.empty());
 
-        assertEquals(Optional.empty(), service.findOrder(orderId));
+        assertEquals(Optional.empty(), service.findOrder(ORDER_ID));
     }
 
     @Test
     @DisplayName("Fails to create an order for an unknown VIN")
     void createOrderFailsForUnknownVin() {
         // Given
-        when(repairOrderRepository.findById(orderId)).thenReturn(Optional.empty());
-        when(carRepository.findByVin(vin)).thenReturn(Optional.empty());
-        Runnable createOrder = () -> service.createOrder(orderId, vin);
+        when(repairOrderRepository.findById(ORDER_ID)).thenReturn(Optional.empty());
+        when(carRepository.findByVin(VIN)).thenReturn(Optional.empty());
+        Runnable createOrder = () -> service.createOrder(ORDER_ID, VIN);
 
         // When
         EntityNotFoundException exception =
                 assertThrows(EntityNotFoundException.class, createOrder::run);
 
         // Then
-        assertEquals(String.format(ServiceMessages.carNotFound, vin), exception.getMessage());
+        assertEquals(String.format(ServiceMessages.CAR_NOT_FOUND, VIN), exception.getMessage());
         verify(repairOrderRepository, never()).save(any());
     }
 
@@ -412,16 +428,16 @@ class RepairOrderServiceTest {
     @DisplayName("Saves a new order when its id is free")
     void createsOrderWhenIdIsFree() {
         // Given
-        when(repairOrderRepository.findById(orderId)).thenReturn(Optional.empty());
-        when(carRepository.findByVin(vin)).thenReturn(Optional.of(order.getCar()));
+        when(repairOrderRepository.findById(ORDER_ID)).thenReturn(Optional.empty());
+        when(carRepository.findByVin(VIN)).thenReturn(Optional.of(order.getCar()));
         ArgumentCaptor<RepairOrder> savedOrder = ArgumentCaptor.forClass(RepairOrder.class);
 
         // When
-        service.createOrder(orderId, vin);
+        service.createOrder(ORDER_ID, VIN);
 
         // Then
         verify(repairOrderRepository).save(savedOrder.capture());
-        assertEquals(orderId, savedOrder.getValue().getId());
+        assertEquals(ORDER_ID, savedOrder.getValue().getId());
         assertSame(order.getCar(), savedOrder.getValue().getCar());
         assertNotSame(order, savedOrder.getValue());
     }
@@ -439,7 +455,7 @@ class RepairOrderServiceTest {
         when(repairOrderRepository.save(order)).thenReturn(order);
 
         // When
-        RepairOrder result = service.completeWork(orderId, firstWorkIndex);
+        RepairOrder result = service.completeWork(ORDER_ID, FIRST_WORK_INDEX);
 
         // Then
         assertSame(order, result);
@@ -457,7 +473,7 @@ class RepairOrderServiceTest {
         order.approve();
 
         // When
-        Runnable startOrder = () -> service.startProgress(orderId);
+        Runnable startOrder = () -> service.startProgress(ORDER_ID);
 
         // Then
         assertThrows(InvalidStateTransitionException.class, startOrder::run);
@@ -467,10 +483,10 @@ class RepairOrderServiceTest {
     @DisplayName("Does not save when order is missing")
     void missingOrderDoesNotSave() {
         // Given
-        when(repairOrderRepository.findById(orderId)).thenReturn(Optional.empty());
+        when(repairOrderRepository.findById(ORDER_ID)).thenReturn(Optional.empty());
 
         // When
-        Runnable diagnoseMissing = () -> service.diagnose(orderId);
+        Runnable diagnoseMissing = () -> service.diagnose(ORDER_ID);
         assertThrows(EntityNotFoundException.class, diagnoseMissing::run);
 
         // Then
@@ -485,7 +501,7 @@ class RepairOrderServiceTest {
         when(repairOrderRepository.save(order)).thenReturn(order);
 
         // When
-        RepairOrder result = service.addWork(orderId, work);
+        RepairOrder result = service.addWork(ORDER_ID, work);
 
         // Then
         assertSame(order, result);
@@ -497,10 +513,10 @@ class RepairOrderServiceTest {
     void rejectsUnknownMechanicAssignment() {
         // Given
         stubExistingOrder();
-        when(mechanicRepository.findById(mechanicId)).thenReturn(Optional.empty());
+        when(mechanicRepository.findById(MECHANIC_ID)).thenReturn(Optional.empty());
 
         // When
-        Runnable assignUnknownMechanic = () -> service.assignMechanic(orderId, mechanicId);
+        Runnable assignUnknownMechanic = () -> service.assignMechanic(ORDER_ID, MECHANIC_ID);
 
         // Then
         assertThrows(EntityNotFoundException.class, assignUnknownMechanic::run);
@@ -512,11 +528,11 @@ class RepairOrderServiceTest {
     void assignsMechanicAndSavesOrder() {
         // Given
         stubExistingOrder();
-        when(mechanicRepository.findById(mechanicId)).thenReturn(Optional.of(mechanic));
+        when(mechanicRepository.findById(MECHANIC_ID)).thenReturn(Optional.of(mechanic));
         when(repairOrderRepository.save(order)).thenReturn(order);
 
         // When
-        RepairOrder result = service.assignMechanic(orderId, mechanicId);
+        RepairOrder result = service.assignMechanic(ORDER_ID, MECHANIC_ID);
 
         // Then
         assertSame(order, result);
@@ -532,7 +548,7 @@ class RepairOrderServiceTest {
         when(repairOrderRepository.save(order)).thenReturn(order);
 
         // When
-        RepairOrder result = service.changePriority(orderId, OrderPriority.URGENT);
+        RepairOrder result = service.changePriority(ORDER_ID, OrderPriority.URGENT);
 
         // Then
         assertSame(order, result);
@@ -561,11 +577,11 @@ class RepairOrderServiceTest {
     void createsPresentThroughGiftPolicy() {
         // Given
         stubExistingOrder();
-        Present expectedPresent = new Present(workParts, new Gift("Test gift", workParts));
+        Present expectedPresent = new Present(WORK_PARTS, new Gift("Test gift", WORK_PARTS));
         when(giftPolicy.createPresent(order)).thenReturn(expectedPresent);
 
         // When
-        Present result = service.createPresent(orderId);
+        Present result = service.createPresent(ORDER_ID);
 
         // Then
         assertSame(expectedPresent, result);
@@ -581,7 +597,7 @@ class RepairOrderServiceTest {
         when(pricingPolicy.calculateBasePrice(order)).thenReturn(expectedPrice);
 
         // When
-        BigDecimal actualPrice = service.calculateBasePrice(orderId);
+        BigDecimal actualPrice = service.calculateBasePrice(ORDER_ID);
 
         // Then
         assertEquals(expectedPrice, actualPrice);
@@ -597,14 +613,14 @@ class RepairOrderServiceTest {
         when(pricingPolicy.calculateFinalPrice(order)).thenReturn(expectedPrice);
 
         // When
-        BigDecimal actualPrice = service.calculateFinalPrice(orderId);
+        BigDecimal actualPrice = service.calculateFinalPrice(ORDER_ID);
 
         // Then
         assertEquals(expectedPrice, actualPrice);
         verify(pricingPolicy).calculateFinalPrice(order);
     }
 
-    private void prepareFor(OrderStatus status, OrderOperation operation) {
+    private void prepareFor(OrderStatus status, String operation) {
         switch (status) {
             case CREATED -> {
             }
@@ -616,38 +632,37 @@ class RepairOrderServiceTest {
             case IN_PROGRESS -> {
                 prepareApprovedOrder();
                 order.startProgress();
-                if (operation == OrderOperation.COMPLETE) {
-                    order.completeWork(firstWorkIndex);
+                if ("COMPLETE".equals(operation)) {
+                    order.completeWork(FIRST_WORK_INDEX);
                 }
             }
             case COMPLETED -> {
                 prepareApprovedOrder();
                 order.startProgress();
-                order.completeWork(firstWorkIndex);
-                order.complete(BigDecimal.ZERO, fixedInstant);
+                order.completeWork(FIRST_WORK_INDEX);
+                order.complete(BigDecimal.ZERO, FIXED_INSTANT);
             }
             case CANCELLED -> order.cancel();
         }
     }
 
-    private void performWithNullOrderIdentifier(NullOrderIdentifierOperation operation) {
+    private void performWithNullOrderIdentifier(String operation) {
         switch (operation) {
-            case CREATE_ORDER -> service.createOrder(null, vin);
-            case GET_ORDER -> service.getOrder(null);
-            case FIND_ORDER -> service.findOrder(null);
-            case ADD_WORK -> service.addWork(null, work);
-            case ADD_WORKS -> service.addWorks(null, List.of(work));
-            case CHANGE_PRIORITY -> service.changePriority(null, OrderPriority.URGENT);
-            case DIAGNOSE -> service.diagnose(null);
-            case APPROVE -> service.approve(null);
-            case ASSIGN_MECHANIC -> service.assignMechanic(null, mechanicId);
-            case START_PROGRESS -> service.startProgress(null);
-            case COMPLETE_WORK -> service.completeWork(null, firstWorkIndex);
-            case COMPLETE -> service.complete(null);
-            case CANCEL -> service.cancel(null);
-            case CALCULATE_BASE_PRICE -> service.calculateBasePrice(null);
-            case CALCULATE_FINAL_PRICE -> service.calculateFinalPrice(null);
-            case CREATE_PRESENT -> service.createPresent(null);
+            case "CREATE_ORDER" -> service.createOrder(null, VIN);
+            case "FIND_ORDER" -> service.findOrder(null);
+            case "ADD_WORK" -> service.addWork(null, work);
+            case "ADD_WORKS" -> service.addWorks(null, List.of(work));
+            case "CHANGE_PRIORITY" -> service.changePriority(null, OrderPriority.URGENT);
+            case "DIAGNOSE" -> service.diagnose(null);
+            case "APPROVE" -> service.approve(null);
+            case "ASSIGN_MECHANIC" -> service.assignMechanic(null, MECHANIC_ID);
+            case "START_PROGRESS" -> service.startProgress(null);
+            case "COMPLETE_WORK" -> service.completeWork(null, FIRST_WORK_INDEX);
+            case "COMPLETE" -> service.complete(null);
+            case "CANCEL" -> service.cancel(null);
+            case "CALCULATE_BASE_PRICE" -> service.calculateBasePrice(null);
+            case "CALCULATE_FINAL_PRICE" -> service.calculateFinalPrice(null);
+            case "CREATE_PRESENT" -> service.createPresent(null);
         }
     }
 
@@ -658,59 +673,29 @@ class RepairOrderServiceTest {
         order.assignMechanic(mechanic);
     }
 
-    private void perform(OrderOperation operation) {
+    private void perform(String operation) {
         stubExistingOrder();
-        operationMap().get(operation).accept(service, orderId);
+        operationMap().get(operation).accept(service, ORDER_ID);
     }
 
     private void stubExistingOrder() {
-        when(repairOrderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        when(repairOrderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
     }
 
-    private enum NullOrderIdentifierOperation {
-        CREATE_ORDER,
-        GET_ORDER,
-        FIND_ORDER,
-        ADD_WORK,
-        ADD_WORKS,
-        CHANGE_PRIORITY,
-        DIAGNOSE,
-        APPROVE,
-        ASSIGN_MECHANIC,
-        START_PROGRESS,
-        COMPLETE_WORK,
-        COMPLETE,
-        CANCEL,
-        CALCULATE_BASE_PRICE,
-        CALCULATE_FINAL_PRICE,
-        CREATE_PRESENT
-    }
-
-    private Map<OrderOperation, BiConsumer<RepairOrderService, String>> operationMap() {
-        Map<OrderOperation, BiConsumer<RepairOrderService, String>> operations =
-                new EnumMap<>(OrderOperation.class);
-        operations.put(OrderOperation.DIAGNOSE, RepairOrderService::diagnose);
-        operations.put(OrderOperation.APPROVE, RepairOrderService::approve);
-        operations.put(OrderOperation.START_PROGRESS, RepairOrderService::startProgress);
-        operations.put(OrderOperation.COMPLETE, RepairOrderService::complete);
-        operations.put(OrderOperation.CANCEL, RepairOrderService::cancel);
-        operations.put(
-                OrderOperation.CHANGE_PRIORITY,
+    private Map<String, BiConsumer<RepairOrderService, UUID>> operationMap() {
+        return Map.of(
+                "DIAGNOSE", RepairOrderService::diagnose,
+                "APPROVE", RepairOrderService::approve,
+                "START_PROGRESS", RepairOrderService::startProgress,
+                "COMPLETE", RepairOrderService::complete,
+                "CANCEL", RepairOrderService::cancel,
+                "CHANGE_PRIORITY",
                 (repairOrderService, id) ->
                         repairOrderService.changePriority(id, OrderPriority.URGENT));
-        return operations;
     }
 
     private ServiceWork createWork() {
-        return new ServiceWork(workDescription, workParts, workLabor, MechanicSpecialization.GENERAL);
+        return new ServiceWork(WORK_DESCRIPTION, WORK_PARTS, WORK_LABOR, MechanicSpecialization.GENERAL);
     }
 
-    private enum OrderOperation {
-        DIAGNOSE,
-        APPROVE,
-        START_PROGRESS,
-        COMPLETE,
-        CANCEL,
-        CHANGE_PRIORITY
-    }
 }

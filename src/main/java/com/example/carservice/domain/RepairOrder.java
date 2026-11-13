@@ -1,5 +1,9 @@
 package com.example.carservice.domain;
 
+import com.example.carservice.domain.enumerate.MechanicSpecialization;
+import com.example.carservice.domain.enumerate.OrderPriority;
+import com.example.carservice.domain.enumerate.OrderStatus;
+import com.example.carservice.domain.enumerate.WorkStatus;
 import com.example.carservice.exception.DomainMessages;
 import com.example.carservice.exception.InvalidArgumentException;
 import com.example.carservice.exception.InvalidStateTransitionException;
@@ -24,13 +28,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 @Entity
 @Table(name = "repair_orders")
 public class RepairOrder {
     @Id
-    @Column(name = "id", length = 64)
-    private String id;
+    @Column(name = "id")
+    private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "car_vin", referencedColumnName = "vin", nullable = false)
@@ -69,12 +74,12 @@ public class RepairOrder {
         works = new ArrayList<>();
     }
 
-    public RepairOrder(String id, Car car) {
-        if (id == null || id.isBlank()) {
-            throw new InvalidArgumentException(DomainMessages.invalidRepairOrderId);
+    public RepairOrder(UUID id, Car car) {
+        if (id == null) {
+            throw new InvalidArgumentException(DomainMessages.INVALID_REPAIR_ORDER_ID);
         }
         if (car == null) {
-            throw new InvalidArgumentException(DomainMessages.carRequired);
+            throw new InvalidArgumentException(DomainMessages.CAR_REQUIRED);
         }
         this.id = id;
         this.car = car;
@@ -83,7 +88,7 @@ public class RepairOrder {
         this.priority = OrderPriority.NORMAL;
     }
 
-    public String getId() {
+    public UUID getId() {
         return id;
     }
 
@@ -125,7 +130,7 @@ public class RepairOrder {
     public void changePriority(OrderPriority priority) {
         ensureModifiable();
         if (priority == null) {
-            throw new InvalidArgumentException(DomainMessages.priorityRequired);
+            throw new InvalidArgumentException(DomainMessages.PRIORITY_REQUIRED);
         }
         this.priority = priority;
     }
@@ -149,10 +154,10 @@ public class RepairOrder {
     public void addWork(ServiceWork work) {
         ensureModifiable();
         if (work == null) {
-            throw new InvalidArgumentException(DomainMessages.serviceWorkRequired);
+            throw new InvalidArgumentException(DomainMessages.SERVICE_WORK_REQUIRED);
         }
         if (assignedMechanic != null && !isCompatible(work, assignedMechanic)) {
-            throw new MechanicNotCompatibleException(DomainMessages.mechanicNotCompatible);
+            throw new MechanicNotCompatibleException(DomainMessages.MECHANIC_NOT_COMPATIBLE);
         }
         works.add(work);
     }
@@ -165,10 +170,10 @@ public class RepairOrder {
     public void assignMechanic(Mechanic mechanic) {
         ensureModifiable();
         if (mechanic == null) {
-            throw new InvalidArgumentException(DomainMessages.mechanicRequiredForAssignment);
+            throw new InvalidArgumentException(DomainMessages.MECHANIC_REQUIRED_FOR_ASSIGNMENT);
         }
         if (!isCompatible(mechanic)) {
-            throw new MechanicNotCompatibleException(DomainMessages.mechanicNotCompatible);
+            throw new MechanicNotCompatibleException(DomainMessages.MECHANIC_NOT_COMPATIBLE);
         }
         if (Objects.equals(mechanic, assignedMechanic)) {
             return;
@@ -182,29 +187,29 @@ public class RepairOrder {
 
     public void diagnose() {
         if (status != OrderStatus.CREATED) {
-            throw new InvalidStateTransitionException(DomainMessages.invalidDiagnoseStatus);
+            throw new InvalidStateTransitionException(DomainMessages.INVALID_DIAGNOSE_STATUS);
         }
         status = OrderStatus.DIAGNOSED;
     }
 
     public void approve() {
         if (status != OrderStatus.DIAGNOSED) {
-            throw new InvalidStateTransitionException(DomainMessages.invalidApproveStatus);
+            throw new InvalidStateTransitionException(DomainMessages.INVALID_APPROVE_STATUS);
         }
         // Approval requires at least one work item.
         if (works.isEmpty()) {
-            throw new InvalidStateTransitionException(DomainMessages.emptyOrder);
+            throw new InvalidStateTransitionException(DomainMessages.EMPTY_ORDER);
         }
         status = OrderStatus.APPROVED;
     }
 
     public void startProgress() {
         if (status != OrderStatus.APPROVED) {
-            throw new InvalidStateTransitionException(DomainMessages.invalidProgressStatus);
+            throw new InvalidStateTransitionException(DomainMessages.INVALID_PROGRESS_STATUS);
         }
         // A mechanic must be assigned before work can begin.
         if (assignedMechanic == null) {
-            throw new InvalidStateTransitionException(DomainMessages.mechanicRequired);
+            throw new InvalidStateTransitionException(DomainMessages.MECHANIC_REQUIRED);
         }
         status = OrderStatus.IN_PROGRESS;
     }
@@ -212,17 +217,17 @@ public class RepairOrder {
     public void completeWork(int workIndex) {
         ensureModifiable();
         if (status != OrderStatus.IN_PROGRESS) {
-            throw new InvalidStateTransitionException(DomainMessages.invalidCompleteWorkStatus);
+            throw new InvalidStateTransitionException(DomainMessages.INVALID_COMPLETE_WORK_STATUS);
         }
         if (workIndex < 0 || workIndex >= works.size()) {
-            throw new InvalidArgumentException(DomainMessages.workIndexOutOfRange);
+            throw new InvalidArgumentException(DomainMessages.WORK_INDEX_OUT_OF_RANGE);
         }
         works.get(workIndex).complete();
     }
 
     public void complete(BigDecimal finalPrice, Instant completedAt) {
         if (finalPrice == null || completedAt == null) {
-            throw new InvalidArgumentException(DomainMessages.completionDetailsRequired);
+            throw new InvalidArgumentException(DomainMessages.COMPLETION_DETAILS_REQUIRED);
         }
         ensureCanComplete();
         status = OrderStatus.COMPLETED;
@@ -233,10 +238,10 @@ public class RepairOrder {
 
     public void ensureCanComplete() {
         if (status != OrderStatus.IN_PROGRESS) {
-            throw new InvalidStateTransitionException(DomainMessages.invalidCompleteStatus);
+            throw new InvalidStateTransitionException(DomainMessages.INVALID_COMPLETE_STATUS);
         }
         if (works.stream().anyMatch(work -> work.getStatus() != WorkStatus.COMPLETED)) {
-            throw new InvalidStateTransitionException(DomainMessages.unfinishedWork);
+            throw new InvalidStateTransitionException(DomainMessages.UNFINISHED_WORK);
         }
     }
 
@@ -244,7 +249,7 @@ public class RepairOrder {
         if (status != OrderStatus.CREATED
                 && status != OrderStatus.DIAGNOSED
                 && status != OrderStatus.APPROVED) {
-            throw new InvalidStateTransitionException(DomainMessages.invalidCancelStatus + status);
+            throw new InvalidStateTransitionException(DomainMessages.INVALID_CANCEL_STATUS + status);
         }
         status = OrderStatus.CANCELLED;
         if (assignedMechanic != null) {
@@ -265,7 +270,7 @@ public class RepairOrder {
     private void ensureModifiable() {
         // Completed and cancelled orders cannot be changed.
         if (isClosed()) {
-            throw new OrderModificationNotAllowedException(DomainMessages.closedOrder);
+            throw new OrderModificationNotAllowedException(DomainMessages.CLOSED_ORDER);
         }
     }
 

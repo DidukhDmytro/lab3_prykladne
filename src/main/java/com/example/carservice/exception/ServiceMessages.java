@@ -1,28 +1,24 @@
 package com.example.carservice.exception;
 
-public class ServiceMessages {
-    public static String entityRequired = "Registered entities must not be null.";
-    public static String duplicateEntity = "An entity with identifier '%s' is already registered.";
-    public static String duplicateVin = "A car with VIN '%s' is already registered.";
-    public static String repositoryOrderRequired = "A repair order is required.";
-    public static String repositoryCarRequired = "A car is required.";
-    public static String repositoryMechanicRequired = "A mechanic is required.";
-    public static String repositoryIdentifierRequired = "An identifier is required.";
-    public static String repositoryStatusRequired = "An order status is required.";
-    public static String duplicateRepairOrder = "Repair order '%s' already exists.";
-    public static String repairOrderNotFound = "Repair order '%s' was not found.";
-    public static String carNotFound = "Car with VIN '%s' was not found.";
-    public static String customerNotFound = "Customer '%s' was not found.";
-    public static String repositoryCustomerRequired = "A customer is required.";
-    public static String mechanicNotFound = "Mechanic '%s' was not found.";
-    public static String serviceDependenciesRequired = "Service dependencies are required.";
-    public static String workListRequired = "A work list is required.";
-    public static String workListMustNotBeEmpty = "A work list must not be empty.";
-    public static String serviceIdentifierRequired = "A service identifier is required.";
-    public static String serviceStatusRequired = "An order status is required.";
-    public static String servicePriorityRequired = "An order priority is required.";
-    public static String serviceMechanicRequired = "A mechanic is required.";
+import lombok.experimental.UtilityClass;
 
-    private ServiceMessages() {
-    }
+@UtilityClass
+public class ServiceMessages {
+    public static final String ENTITY_REQUIRED = "Registered entities must not be null.";
+    public static final String DUPLICATE_ENTITY = "An entity with identifier '%s' is already registered.";
+    public static final String DUPLICATE_VIN = "A car with VIN '%s' is already registered.";
+    public static final String REPOSITORY_CAR_REQUIRED = "A car is required.";
+    public static final String DUPLICATE_REPAIR_ORDER = "Repair order '%s' already exists.";
+    public static final String REPAIR_ORDER_NOT_FOUND = "Repair order '%s' was not found.";
+    public static final String CAR_NOT_FOUND = "Car with VIN '%s' was not found.";
+    public static final String CUSTOMER_NOT_FOUND = "Customer '%s' was not found.";
+    public static final String MECHANIC_NOT_FOUND = "Mechanic '%s' was not found.";
+    public static final String SERVICE_DEPENDENCIES_REQUIRED = "Service dependencies are required.";
+    public static final String WORK_LIST_REQUIRED = "A work list is required.";
+    public static final String WORK_LIST_MUST_NOT_BE_EMPTY = "A work list must not be empty.";
+    public static final String SERVICE_IDENTIFIER_REQUIRED = "A service identifier is required.";
+    public static final String SERVICE_STATUS_REQUIRED = "An order status is required.";
+    public static final String SERVICE_PRIORITY_REQUIRED = "An order priority is required.";
+    public static final String SERVICE_MECHANIC_REQUIRED = "A mechanic is required.";
+
 }

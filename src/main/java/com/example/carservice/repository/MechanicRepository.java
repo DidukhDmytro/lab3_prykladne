@@ -1,13 +1,13 @@
 package com.example.carservice.repository;
 
 import com.example.carservice.domain.Mechanic;
-import java.util.Optional;
-import org.springframework.data.repository.Repository;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
  * Provides persistent access to mechanics by identifier.
  *
- * <p>Lookup returns {@link Optional#empty()} when the mechanic is missing.</p>
+ * <p>Lookups return {@link java.util.Optional#empty()} when a mechanic is missing.</p>
  */
-public interface MechanicRepository extends Repository<Mechanic, String> {
+public interface MechanicRepository extends JpaRepository<Mechanic, UUID> {
 }

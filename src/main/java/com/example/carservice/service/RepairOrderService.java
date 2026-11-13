@@ -2,8 +2,8 @@ package com.example.carservice.service;
 
 import com.example.carservice.domain.Car;
 import com.example.carservice.domain.Mechanic;
-import com.example.carservice.domain.OrderStatus;
-import com.example.carservice.domain.OrderPriority;
+import com.example.carservice.domain.enumerate.OrderStatus;
+import com.example.carservice.domain.enumerate.OrderPriority;
 import com.example.carservice.domain.Present;
 import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.domain.ServiceWork;
@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,7 +49,7 @@ public class RepairOrderService {
                 || pricingPolicy == null
                 || giftPolicy == null
                 || clock == null) {
-            throw new InvalidArgumentException(ServiceMessages.serviceDependenciesRequired);
+            throw new InvalidArgumentException(ServiceMessages.SERVICE_DEPENDENCIES_REQUIRED);
         }
         this.repairOrderRepository = repairOrderRepository;
         this.carRepository = carRepository;
@@ -59,15 +60,15 @@ public class RepairOrderService {
     }
 
 
-    public RepairOrder createOrder(String orderId, String vin) {
+    public RepairOrder createOrder(UUID orderId, String vin) {
         requireIdentifier(orderId);
         requireIdentifier(vin);
         if (repairOrderRepository.findById(orderId).isPresent()) {
             throw new EntityAlreadyExistsException(
-                    String.format(ServiceMessages.duplicateRepairOrder, orderId));
+                    String.format(ServiceMessages.DUPLICATE_REPAIR_ORDER, orderId));
         }
         Car car = carRepository.findByVin(vin)
-                .orElseThrow(() -> new EntityNotFoundException(String.format(ServiceMessages.carNotFound, vin)));
+                .orElseThrow(() -> new EntityNotFoundException(String.format(ServiceMessages.CAR_NOT_FOUND, vin)));
 
         RepairOrder repairOrder = new RepairOrder(orderId, car);
 
@@ -76,95 +77,114 @@ public class RepairOrderService {
 
 
     @Transactional(readOnly = true)
-    public RepairOrder getOrder(String orderId) {
-        return getOrThrow(orderId);
-    }
-
-
-    @Transactional(readOnly = true)
-    public Optional<RepairOrder> findOrder(String orderId) {
+    public Optional<RepairOrder> findOrder(UUID orderId) {
         requireIdentifier(orderId);
         return repairOrderRepository.findById(orderId);
     }
 
 
-    public RepairOrder addWork(String orderId, ServiceWork work) {
+    public RepairOrder addWork(UUID orderId, ServiceWork work) {
         requireIdentifier(orderId);
         if (work == null) {
-            throw new InvalidArgumentException(ServiceMessages.entityRequired);
+            throw new InvalidArgumentException(ServiceMessages.ENTITY_REQUIRED);
         }
-        RepairOrder order = getOrThrow(orderId);
+        RepairOrder order = repairOrderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format(ServiceMessages.REPAIR_ORDER_NOT_FOUND, orderId)));
         order.addWork(work);
         return repairOrderRepository.save(order);
     }
 
 
-    public RepairOrder addWorks(String orderId, List<ServiceWork> works) {
+    public RepairOrder addWorks(UUID orderId, List<ServiceWork> works) {
         requireIdentifier(orderId);
         if (works == null) {
-            throw new InvalidArgumentException(ServiceMessages.workListRequired);
+            throw new InvalidArgumentException(ServiceMessages.WORK_LIST_REQUIRED);
         }
         if (works.isEmpty()) {
-            throw new InvalidArgumentException(ServiceMessages.workListMustNotBeEmpty);
+            throw new InvalidArgumentException(ServiceMessages.WORK_LIST_MUST_NOT_BE_EMPTY);
         }
-        RepairOrder order = getOrThrow(orderId);
+        RepairOrder order = repairOrderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format(ServiceMessages.REPAIR_ORDER_NOT_FOUND, orderId)));
         // Keep this operation inline: calling addWork through this instance bypasses the transactional proxy.
         works.forEach(order::addWork);
         return repairOrderRepository.save(order);
     }
 
 
-    public RepairOrder changePriority(String orderId, OrderPriority priority) {
+    public RepairOrder changePriority(UUID orderId, OrderPriority priority) {
+        requireIdentifier(orderId);
         if (priority == null) {
-            throw new InvalidArgumentException(ServiceMessages.servicePriorityRequired);
+            throw new InvalidArgumentException(ServiceMessages.SERVICE_PRIORITY_REQUIRED);
         }
-        RepairOrder order = getOrThrow(orderId);
+        RepairOrder order = repairOrderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format(ServiceMessages.REPAIR_ORDER_NOT_FOUND, orderId)));
         order.changePriority(priority);
         return repairOrderRepository.save(order);
     }
 
 
-    public RepairOrder diagnose(String orderId) {
-        RepairOrder order = getOrThrow(orderId);
+    public RepairOrder diagnose(UUID orderId) {
+        requireIdentifier(orderId);
+        RepairOrder order = repairOrderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format(ServiceMessages.REPAIR_ORDER_NOT_FOUND, orderId)));
         order.diagnose();
         return repairOrderRepository.save(order);
     }
 
 
-    public RepairOrder approve(String orderId) {
-        RepairOrder order = getOrThrow(orderId);
+    public RepairOrder approve(UUID orderId) {
+        requireIdentifier(orderId);
+        RepairOrder order = repairOrderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format(ServiceMessages.REPAIR_ORDER_NOT_FOUND, orderId)));
         order.approve();
         return repairOrderRepository.save(order);
     }
 
 
-    public RepairOrder assignMechanic(String orderId, String mechanicId) {
+    public RepairOrder assignMechanic(UUID orderId, UUID mechanicId) {
+        requireIdentifier(orderId);
         requireIdentifier(mechanicId);
-        RepairOrder order = getOrThrow(orderId);
+        RepairOrder order = repairOrderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format(ServiceMessages.REPAIR_ORDER_NOT_FOUND, orderId)));
         Mechanic mechanic = mechanicRepository.findById(mechanicId)
                 .orElseThrow(() -> new EntityNotFoundException(
-                        String.format(ServiceMessages.mechanicNotFound, mechanicId)));
+                        String.format(ServiceMessages.MECHANIC_NOT_FOUND, mechanicId)));
         order.assignMechanic(mechanic);
         return repairOrderRepository.save(order);
     }
 
 
-    public RepairOrder startProgress(String orderId) {
-        RepairOrder order = getOrThrow(orderId);
+    public RepairOrder startProgress(UUID orderId) {
+        requireIdentifier(orderId);
+        RepairOrder order = repairOrderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format(ServiceMessages.REPAIR_ORDER_NOT_FOUND, orderId)));
         order.startProgress();
         return repairOrderRepository.save(order);
     }
 
 
-    public RepairOrder completeWork(String orderId, int workIndex) {
-        RepairOrder order = getOrThrow(orderId);
+    public RepairOrder completeWork(UUID orderId, int workIndex) {
+        requireIdentifier(orderId);
+        RepairOrder order = repairOrderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format(ServiceMessages.REPAIR_ORDER_NOT_FOUND, orderId)));
         order.completeWork(workIndex);
         return repairOrderRepository.save(order);
     }
 
 
-    public RepairOrder complete(String orderId) {
-        RepairOrder order = getOrThrow(orderId);
+    public RepairOrder complete(UUID orderId) {
+        requireIdentifier(orderId);
+        RepairOrder order = repairOrderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format(ServiceMessages.REPAIR_ORDER_NOT_FOUND, orderId)));
         order.ensureCanComplete();
         BigDecimal finalPrice = pricingPolicy.calculateFinalPrice(order);
         Instant completedAt = Instant.now(clock);
@@ -173,8 +193,11 @@ public class RepairOrderService {
     }
 
 
-    public RepairOrder cancel(String orderId) {
-        RepairOrder order = getOrThrow(orderId);
+    public RepairOrder cancel(UUID orderId) {
+        requireIdentifier(orderId);
+        RepairOrder order = repairOrderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format(ServiceMessages.REPAIR_ORDER_NOT_FOUND, orderId)));
         order.cancel();
         return repairOrderRepository.save(order);
     }
@@ -183,39 +206,50 @@ public class RepairOrderService {
     @Transactional(readOnly = true)
     public List<RepairOrder> findByStatus(OrderStatus status) {
         if (status == null) {
-            throw new InvalidArgumentException(ServiceMessages.serviceStatusRequired);
+            throw new InvalidArgumentException(ServiceMessages.SERVICE_STATUS_REQUIRED);
         }
         return repairOrderRepository.findByStatus(status);
     }
 
 
     @Transactional(readOnly = true)
-    public BigDecimal calculateBasePrice(String orderId) {
-        return pricingPolicy.calculateBasePrice(getOrThrow(orderId));
-    }
-
-
-    @Transactional(readOnly = true)
-    public BigDecimal calculateFinalPrice(String orderId) {
-        return pricingPolicy.calculateFinalPrice(getOrThrow(orderId));
-    }
-
-
-    @Transactional(readOnly = true)
-    public Present createPresent(String orderId) {
-        return giftPolicy.createPresent(getOrThrow(orderId));
-    }
-
-    private RepairOrder getOrThrow(String orderId) {
+    public BigDecimal calculateBasePrice(UUID orderId) {
         requireIdentifier(orderId);
-        Optional<RepairOrder> order = repairOrderRepository.findById(orderId);
-        return order.orElseThrow(() -> new EntityNotFoundException(
-                String.format(ServiceMessages.repairOrderNotFound, orderId)));
+        RepairOrder order = repairOrderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format(ServiceMessages.REPAIR_ORDER_NOT_FOUND, orderId)));
+        return pricingPolicy.calculateBasePrice(order);
+    }
+
+
+    @Transactional(readOnly = true)
+    public BigDecimal calculateFinalPrice(UUID orderId) {
+        requireIdentifier(orderId);
+        RepairOrder order = repairOrderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format(ServiceMessages.REPAIR_ORDER_NOT_FOUND, orderId)));
+        return pricingPolicy.calculateFinalPrice(order);
+    }
+
+
+    @Transactional(readOnly = true)
+    public Present createPresent(UUID orderId) {
+        requireIdentifier(orderId);
+        RepairOrder order = repairOrderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        String.format(ServiceMessages.REPAIR_ORDER_NOT_FOUND, orderId)));
+        return giftPolicy.createPresent(order);
+    }
+
+    private void requireIdentifier(UUID identifier) {
+        if (identifier == null) {
+            throw new InvalidArgumentException(ServiceMessages.SERVICE_IDENTIFIER_REQUIRED);
+        }
     }
 
     private void requireIdentifier(String identifier) {
         if (identifier == null || identifier.isBlank()) {
-            throw new InvalidArgumentException(ServiceMessages.serviceIdentifierRequired);
+            throw new InvalidArgumentException(ServiceMessages.SERVICE_IDENTIFIER_REQUIRED);
         }
     }
 }

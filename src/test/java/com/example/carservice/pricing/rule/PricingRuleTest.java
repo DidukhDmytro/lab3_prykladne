@@ -1,5 +1,6 @@
 package com.example.carservice.pricing.rule;
 
+import com.example.carservice.domain.enumerate.PricingPriority;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -7,8 +8,8 @@ import com.example.carservice.app.OldCarDiscountRule;
 import com.example.carservice.config.AppConstants;
 import com.example.carservice.domain.Car;
 import com.example.carservice.domain.Customer;
-import com.example.carservice.domain.MechanicSpecialization;
-import com.example.carservice.domain.OrderPriority;
+import com.example.carservice.domain.enumerate.MechanicSpecialization;
+import com.example.carservice.domain.enumerate.OrderPriority;
 import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.domain.ServiceWork;
 import com.example.carservice.pricing.PriceCalculator;
@@ -19,6 +20,7 @@ import com.example.carservice.pricing.PricingRule;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,17 +28,17 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 class PricingRuleTest {
-    private String description = "Rule test work";
-    private BigDecimal discountPercent = new BigDecimal("5");
+    private static final String DESCRIPTION = "Rule test work";
+    private static final BigDecimal DISCOUNT_PERCENT = new BigDecimal("5");
     private RepairOrder order;
 
     @BeforeEach
     void setUp() {
-        Customer customer = new Customer("customer-rule", "Rule Customer", "555-0100");
+        Customer customer = new Customer(UUID.randomUUID(), "Rule Customer", "555-0100");
         Car car = new Car("VIN-RULE", "Test", "Model", 2020, customer);
-        order = new RepairOrder("order-rule", car);
+        order = new RepairOrder(UUID.randomUUID(), car);
         order.addWork(new ServiceWork(
-                description,
+                DESCRIPTION,
                 new BigDecimal("100.00"),
                 new BigDecimal("50.00"),
                 MechanicSpecialization.GENERAL));
@@ -109,7 +111,7 @@ class PricingRuleTest {
         PriceCalculator calculator = new PriceCalculator(
                 List.of(
                         new PercentageDiscountRule(new BigDecimal("10")),
-                        new UrgentSurchargeRule(AppConstants.urgentLaborSurchargeFactor),
+                        new UrgentSurchargeRule(AppConstants.URGENT_LABOR_SURCHARGE_FACTOR),
                         new FixedDiscountRule(new BigDecimal("5"))),
                 BigDecimal.ZERO);
 
@@ -126,7 +128,7 @@ class PricingRuleTest {
         // Given
         BigDecimal base = order.calculateBaseTotal();
         BigDecimal surcharge = order.calculateLaborTotal()
-                .multiply(AppConstants.urgentLaborSurchargeFactor);
+                .multiply(AppConstants.URGENT_LABOR_SURCHARGE_FACTOR);
         BigDecimal percent = new BigDecimal("10");
         order.changePriority(OrderPriority.URGENT);
 
@@ -156,7 +158,7 @@ class PricingRuleTest {
                 () -> new UrgentSurchargeRule(nullFactor));
 
         // Then
-        assertEquals(PricingMessages.urgentSurchargeFactorRequired, exception.getMessage());
+        assertEquals(PricingMessages.URGENT_SURCHARGE_FACTOR_REQUIRED, exception.getMessage());
     }
 
     @Test
@@ -171,7 +173,7 @@ class PricingRuleTest {
                 () -> new UrgentSurchargeRule(negativeFactor));
 
         // Then
-        assertEquals(PricingMessages.invalidUrgentSurchargeFactor, exception.getMessage());
+        assertEquals(PricingMessages.INVALID_URGENT_SURCHARGE_FACTOR, exception.getMessage());
     }
 
     @ParameterizedTest
@@ -180,14 +182,14 @@ class PricingRuleTest {
     void rejectsInvalidOldCarCurrentYear(int invalidYear) {
         // Given
         Runnable constructRule = () ->
-                new OldCarDiscountRule(invalidYear, 10, discountPercent);
+                new OldCarDiscountRule(invalidYear, 10, DISCOUNT_PERCENT);
 
         // When
         PricingException exception =
                 assertThrows(PricingException.class, constructRule::run);
 
         // Then
-        assertEquals(PricingMessages.oldCarCurrentYearRequired, exception.getMessage());
+        assertEquals(PricingMessages.OLD_CAR_CURRENT_YEAR_REQUIRED, exception.getMessage());
     }
 
     @Test
@@ -195,14 +197,14 @@ class PricingRuleTest {
     void rejectsNegativeOldCarAgeLimit() {
         // Given
         Runnable constructRule = () ->
-                new OldCarDiscountRule(2031, -1, discountPercent);
+                new OldCarDiscountRule(2031, -1, DISCOUNT_PERCENT);
 
         // When
         PricingException exception =
                 assertThrows(PricingException.class, constructRule::run);
 
         // Then
-        assertEquals(PricingMessages.oldCarAgeLimitInvalid, exception.getMessage());
+        assertEquals(PricingMessages.OLD_CAR_AGE_LIMIT_INVALID, exception.getMessage());
     }
 
     @ParameterizedTest(name = "year {0} produces {2} for a {1}-year-old car")
@@ -215,7 +217,7 @@ class PricingRuleTest {
     void appliesOldCarDiscountForInjectedYear(int injectedYear, int ageLimit, String expected) {
         // Given
         OldCarDiscountRule rule =
-                new OldCarDiscountRule(injectedYear, ageLimit, discountPercent);
+                new OldCarDiscountRule(injectedYear, ageLimit, DISCOUNT_PERCENT);
 
         // When
         PricingContext context = new PricingContext(
@@ -246,16 +248,16 @@ class PricingRuleTest {
     }
 
     private class TestDiscountRule implements PricingRule {
-        private BigDecimal discount = new BigDecimal("5.00");
+        private static final BigDecimal DISCOUNT = new BigDecimal("5.00");
 
         @Override
         public int getPriority() {
-            return DISCOUNT_PRIORITY;
+            return PricingPriority.DISCOUNT.getValue();
         }
 
         @Override
         public BigDecimal apply(PricingContext context, BigDecimal currentTotal) {
-            return currentTotal.subtract(discount);
+            return currentTotal.subtract(DISCOUNT);
         }
     }
 }
