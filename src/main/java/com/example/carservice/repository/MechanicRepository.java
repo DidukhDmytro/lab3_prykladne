@@ -10,7 +10,4 @@ import org.springframework.data.repository.Repository;
  * <p>Lookup returns {@link Optional#empty()} when the mechanic is missing.</p>
  */
 public interface MechanicRepository extends Repository<Mechanic, String> {
-    Mechanic save(Mechanic mechanic);
-
-    Optional<Mechanic> findById(String id);
 }

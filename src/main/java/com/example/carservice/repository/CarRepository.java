@@ -11,7 +11,5 @@ import org.springframework.data.repository.Repository;
  * by the database primary-key constraint.</p>
  */
 public interface CarRepository extends Repository<Car, String> {
-    Car save(Car car);
-
     Optional<Car> findByVin(String vin);
 }

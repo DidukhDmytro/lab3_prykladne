@@ -52,7 +52,7 @@ public class RepairOrder {
     private OrderStatus status;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "priority", nullable = false, length = 32)
+    @Column(name = "priority", nullable = false)
     private OrderPriority priority;
 
     @Column(name = "final_price", precision = 12, scale = 2)

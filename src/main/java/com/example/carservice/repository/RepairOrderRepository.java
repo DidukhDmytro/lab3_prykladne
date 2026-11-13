@@ -16,20 +16,21 @@ import org.springframework.data.repository.query.Param;
  * associated work and repair-order references needed by callers.</p>
  */
 public interface RepairOrderRepository extends Repository<RepairOrder, String> {
-    RepairOrder save(RepairOrder order);
 
     @EntityGraph(attributePaths = {"works", "car", "car.owner", "assignedMechanic"})
     Optional<RepairOrder> findById(String id);
 
-    @Query("select distinct repairOrder from RepairOrder repairOrder "
-            + "left join fetch repairOrder.works "
-            + "left join fetch repairOrder.car car "
-            + "left join fetch car.owner "
-            + "left join fetch repairOrder.assignedMechanic "
-            + "where repairOrder.status = :status")
+    @Query("""
+            select repairOrder from RepairOrder repairOrder
+            left join fetch repairOrder.works
+            left join fetch repairOrder.car car
+            left join fetch car.owner 
+            left join fetch repairOrder.assignedMechanic 
+            where repairOrder.status = :status
+            """)
     List<RepairOrder> findByStatus(@Param("status") OrderStatus status);
 
-    @Query("select distinct repairOrder from RepairOrder repairOrder "
+    @Query("select repairOrder from RepairOrder repairOrder "
             + "left join fetch repairOrder.works "
             + "left join fetch repairOrder.car car "
             + "left join fetch car.owner")

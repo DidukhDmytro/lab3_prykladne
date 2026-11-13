@@ -23,10 +23,7 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Coordinates repair-order operations with repositories and pricing and gift policies.
- * Null identifiers and required object arguments are rejected with {@link InvalidArgumentException}.
- */
+
 @Service
 @Transactional
 public class RepairOrderService {
@@ -37,10 +34,7 @@ public class RepairOrderService {
     private GiftPolicy giftPolicy;
     private Clock clock;
 
-    /**
-     * Creates a service using the supplied dependencies.
-     * @throws InvalidArgumentException if any dependency is null
-     */
+
     public RepairOrderService(
             RepairOrderRepository repairOrderRepository,
             CarRepository carRepository,
@@ -64,11 +58,7 @@ public class RepairOrderService {
         this.clock = clock;
     }
 
-    /**
-     * Creates and stores an order for a registered car.
-     * @throws EntityAlreadyExistsException if the order id exists; {@link EntityNotFoundException} if the car is missing;
-     *         {@link InvalidArgumentException} if an id or VIN is null or the order id is blank
-     */
+
     public RepairOrder createOrder(String orderId, String vin) {
         requireIdentifier(orderId);
         requireIdentifier(vin);
@@ -78,33 +68,26 @@ public class RepairOrderService {
         }
         Car car = carRepository.findByVin(vin)
                 .orElseThrow(() -> new EntityNotFoundException(String.format(ServiceMessages.carNotFound, vin)));
-        return repairOrderRepository.save(new RepairOrder(orderId, car));
+
+        RepairOrder repairOrder = new RepairOrder(orderId, car);
+
+        return repairOrderRepository.save(repairOrder);
     }
 
-    /**
-     * Returns the order with the given id.
-     * @throws EntityNotFoundException if the order is missing; {@link InvalidArgumentException} if the id is null
-     */
+
     @Transactional(readOnly = true)
     public RepairOrder getOrder(String orderId) {
         return getOrThrow(orderId);
     }
 
-    /**
-     * Finds a repair order by identifier.
-     * @param orderId repair-order identifier
-     * @return the order if it exists
-     */
+
     @Transactional(readOnly = true)
     public Optional<RepairOrder> findOrder(String orderId) {
         requireIdentifier(orderId);
         return repairOrderRepository.findById(orderId);
     }
 
-    /**
-     * Adds work to an order and saves it.
-     * @throws EntityNotFoundException if the order is missing; domain exceptions if work is null or the order cannot be changed
-     */
+
     public RepairOrder addWork(String orderId, ServiceWork work) {
         requireIdentifier(orderId);
         if (work == null) {
@@ -115,10 +98,7 @@ public class RepairOrderService {
         return repairOrderRepository.save(order);
     }
 
-    /**
-     * Adds a batch of work atomically.
-     * @throws InvalidArgumentException if the work list is null or empty
-     */
+
     public RepairOrder addWorks(String orderId, List<ServiceWork> works) {
         requireIdentifier(orderId);
         if (works == null) {
@@ -133,10 +113,7 @@ public class RepairOrderService {
         return repairOrderRepository.save(order);
     }
 
-    /**
-     * Changes an order's priority and saves it.
-     * @throws EntityNotFoundException if the order is missing; domain exceptions if priority is null or the order cannot be changed
-     */
+
     public RepairOrder changePriority(String orderId, OrderPriority priority) {
         if (priority == null) {
             throw new InvalidArgumentException(ServiceMessages.servicePriorityRequired);
@@ -146,32 +123,21 @@ public class RepairOrderService {
         return repairOrderRepository.save(order);
     }
 
-    /**
-     * Moves an order from created to diagnosed and saves it.
-     * @throws EntityNotFoundException if the order is missing;
-     *         com.example.carservice.exception.InvalidStateTransitionException if its status is not created
-     */
+
     public RepairOrder diagnose(String orderId) {
         RepairOrder order = getOrThrow(orderId);
         order.diagnose();
         return repairOrderRepository.save(order);
     }
 
-    /**
-     * Approves a diagnosed order with work and saves it.
-     * @throws EntityNotFoundException if the order is missing;
-     *         com.example.carservice.exception.InvalidStateTransitionException if it cannot be approved
-     */
+
     public RepairOrder approve(String orderId) {
         RepairOrder order = getOrThrow(orderId);
         order.approve();
         return repairOrderRepository.save(order);
     }
 
-    /**
-     * Assigns a mechanic to an order and saves it.
-     * @throws EntityNotFoundException if the order or mechanic is missing; domain exceptions if assignment is invalid
-     */
+
     public RepairOrder assignMechanic(String orderId, String mechanicId) {
         requireIdentifier(mechanicId);
         RepairOrder order = getOrThrow(orderId);
@@ -182,32 +148,21 @@ public class RepairOrderService {
         return repairOrderRepository.save(order);
     }
 
-    /**
-     * Starts work on an approved order and saves it.
-     * @throws EntityNotFoundException if the order is missing;
-     *         com.example.carservice.exception.InvalidStateTransitionException if it cannot start
-     */
+
     public RepairOrder startProgress(String orderId) {
         RepairOrder order = getOrThrow(orderId);
         order.startProgress();
         return repairOrderRepository.save(order);
     }
 
-    /**
-     * Completes one work item by index and saves the order.
-     * @throws EntityNotFoundException if the order is missing; domain exceptions if the index or order state is invalid
-     */
+
     public RepairOrder completeWork(String orderId, int workIndex) {
         RepairOrder order = getOrThrow(orderId);
         order.completeWork(workIndex);
         return repairOrderRepository.save(order);
     }
 
-    /**
-     * Validates an order, calculates its final price, completes it, and saves it.
-     * @throws EntityNotFoundException if the order is missing;
-     *         com.example.carservice.exception.InvalidStateTransitionException if work is unfinished or the state is invalid
-     */
+
     public RepairOrder complete(String orderId) {
         RepairOrder order = getOrThrow(orderId);
         order.ensureCanComplete();
@@ -217,21 +172,14 @@ public class RepairOrderService {
         return repairOrderRepository.save(order);
     }
 
-    /**
-     * Cancels an order and saves it.
-     * @throws EntityNotFoundException if the order is missing;
-     *         com.example.carservice.exception.InvalidStateTransitionException if its state cannot be cancelled
-     */
+
     public RepairOrder cancel(String orderId) {
         RepairOrder order = getOrThrow(orderId);
         order.cancel();
         return repairOrderRepository.save(order);
     }
 
-    /**
-     * Returns orders with the given status.
-     * @throws InvalidArgumentException if status is null
-     */
+
     @Transactional(readOnly = true)
     public List<RepairOrder> findByStatus(OrderStatus status) {
         if (status == null) {
@@ -240,30 +188,19 @@ public class RepairOrderService {
         return repairOrderRepository.findByStatus(status);
     }
 
-    /**
-     * Calculates the base price for an order.
-     * @throws EntityNotFoundException if the order is missing;
-     *         com.example.carservice.pricing.PricingException if pricing inputs are invalid
-     */
+
     @Transactional(readOnly = true)
     public BigDecimal calculateBasePrice(String orderId) {
         return pricingPolicy.calculateBasePrice(getOrThrow(orderId));
     }
 
-    /**
-     * Calculates the final price for an order.
-     * @throws EntityNotFoundException if the order is missing;
-     *         com.example.carservice.pricing.PricingException if pricing inputs are invalid
-     */
+
     @Transactional(readOnly = true)
     public BigDecimal calculateFinalPrice(String orderId) {
         return pricingPolicy.calculateFinalPrice(getOrThrow(orderId));
     }
 
-    /**
-     * Creates a gift present for an order.
-     * @throws EntityNotFoundException if the order is missing
-     */
+
     @Transactional(readOnly = true)
     public Present createPresent(String orderId) {
         return giftPolicy.createPresent(getOrThrow(orderId));

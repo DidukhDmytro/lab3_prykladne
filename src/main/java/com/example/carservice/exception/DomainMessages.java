@@ -1,5 +1,6 @@
 package com.example.carservice.exception;
 
+@UtilityClass
 public class DomainMessages {
     public static String invalidVin = "VIN must not be null or blank.";
     public static String invalidPhoneNumber = "Phone number must not be null or blank.";
@@ -34,6 +35,4 @@ public class DomainMessages {
     public static String giftOrderRequired = "A repair order is required to create a present.";
     public static String completionDetailsRequired = "Final price and completion time are required.";
 
-    private DomainMessages() {
-    }
 }

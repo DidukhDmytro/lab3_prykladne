@@ -71,7 +71,7 @@ public class PricingRuleEngine {
                     }
                     return result;
                 })
-                .reduce(Function.identity(), (firstRule, nextRule) -> firstRule.andThen(nextRule));
+                .reduce(Function.identity(), Function::andThen);
         BigDecimal total = rulePipeline.apply(context.getPartsTotal().add(context.getLaborTotal()));
         return total.max(zeroPrice).max(minimumPrice).setScale(priceScale, RoundingMode.HALF_UP);
     }
