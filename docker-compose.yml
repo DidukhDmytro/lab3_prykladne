@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16
+    image: postgres:18
     environment:
       POSTGRES_DB: carservice
       POSTGRES_USER: carservice
@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - carservice_data:/var/lib/postgresql/data
+      - carservice_data:/var/lib/postgresql
 
 volumes:
   carservice_data:

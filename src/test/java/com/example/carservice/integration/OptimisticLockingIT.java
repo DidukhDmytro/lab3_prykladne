@@ -156,8 +156,10 @@ class OptimisticLockingIT extends IntegrationTest {
             // Then
             int committedAssignments = (firstFailure == null ? 1 : 0) + (secondFailure == null ? 1 : 0);
             assertEquals(EXPECTED_COMMITTED_ASSIGNMENT_COUNT, committedAssignments);
+
             int failedAssignments = (firstFailure == null ? 0 : 1) + (secondFailure == null ? 0 : 1);
             assertEquals(EXPECTED_FAILED_ASSIGNMENT_COUNT, failedAssignments);
+
             RuntimeException assignmentFailure = firstFailure == null ? secondFailure : firstFailure;
             assertTrue(
                     assignmentFailure instanceof ObjectOptimisticLockingFailureException

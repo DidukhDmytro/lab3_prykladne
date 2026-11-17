@@ -16,6 +16,7 @@ import com.example.carservice.pricing.rule.FixedDiscountRule;
 import com.example.carservice.pricing.rule.PercentageDiscountRule;
 import com.example.carservice.service.RegistrationService;
 import com.example.carservice.service.RepairOrderService;
+import lombok.RequiredArgsConstructor;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +28,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Profile("!test")
+@RequiredArgsConstructor
 public class CarServiceDemoRunner implements CommandLineRunner {
     private static final UUID CUSTOMER_ID = UUID.fromString("00000000-0000-4000-8000-000000000001");
     private static final String CUSTOMER_NAME = "Alex Morgan";
@@ -78,18 +80,9 @@ public class CarServiceDemoRunner implements CommandLineRunner {
     private static final BigDecimal CUSTOM_SURCHARGE_AMOUNT = new BigDecimal("25.00");
     private static final int FIRST_WORK_INDEX = 0;
 
-    private RegistrationService registrationService;
-    private RepairOrderService repairOrderService;
-    private PricingPolicy pricingPolicy;
-
-    public CarServiceDemoRunner(
-            RegistrationService registrationService,
-            RepairOrderService repairOrderService,
-            PricingPolicy pricingPolicy) {
-        this.registrationService = registrationService;
-        this.repairOrderService = repairOrderService;
-        this.pricingPolicy = pricingPolicy;
-    }
+    private final RegistrationService registrationService;
+    private final RepairOrderService repairOrderService;
+    private final PricingPolicy pricingPolicy;
 
     @Override
     public void run(String... args) {

@@ -1,13 +1,13 @@
 # Car Service
 
-A Java 17 console application for registering customers, cars, and mechanics, managing repair
-orders, calculating prices, and persisting data in PostgreSQL.
+A Java 25 console application built with Spring Boot 4.1.2 for registering customers, cars, and
+mechanics, managing repair orders, calculating prices, and persisting data in PostgreSQL.
 
 ## Requirements
 
-- JDK 17
+- JDK 25
 - Apache Maven
-- Docker with Docker Compose (for PostgreSQL and the Testcontainers integration tests)
+- Docker with Docker Compose (for PostgreSQL 18 and the Testcontainers integration tests)
 
 ## Run the application
 

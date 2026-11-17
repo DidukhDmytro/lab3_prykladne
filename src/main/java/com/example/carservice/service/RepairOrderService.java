@@ -28,12 +28,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional
 public class RepairOrderService {
-    private RepairOrderRepository repairOrderRepository;
-    private CarRepository carRepository;
-    private MechanicRepository mechanicRepository;
-    private PricingPolicy pricingPolicy;
-    private GiftPolicy giftPolicy;
-    private Clock clock;
+    private final RepairOrderRepository repairOrderRepository;
+    private final CarRepository carRepository;
+    private final MechanicRepository mechanicRepository;
+    private final PricingPolicy pricingPolicy;
+    private final GiftPolicy giftPolicy;
+    private final Clock clock;
 
 
     public RepairOrderService(
